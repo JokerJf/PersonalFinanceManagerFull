@@ -60,6 +60,10 @@ const Login = () => {
         // Перенаправляем на главную страницу
         window.location.href = '/';
       }
+    } catch (err) {
+      // Ошибка входа или регистрации
+      const errorMessage = err instanceof Error ? err.message : 'Произошла ошибка. Попробуйте позже.';
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }
