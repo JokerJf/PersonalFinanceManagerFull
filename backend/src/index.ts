@@ -20,13 +20,14 @@ const PORT = process.env.PORT || 8080;
 
 // Rate limiting storage for DDoS protection
 // Blocks IP for 30 minutes after exceeding limit, then allows for 1 hour
-const rateLimitStore = new Map<string, { count: number; resetTime: number; blocked: boolean; blockUntil: number; loginAttempts: number }>();
-const WINDOW_MS = 10 * 60 * 1000; // 15 minutes window
-const MAX_REQUESTS = 250; // Max requests per window
+const rateLimitStore = new Map<string, { count: number; resetTime: number; blocked: boolean; blockUntil: number; loginAttempts: number; loginResetTime: number }>();
+const WINDOW_MS = 5 * 60 * 1000; // 5 minutes window
+const MAX_REQUESTS = 3000; // Max requests per window (увеличено для фронтенда)
 const BLOCK_DURATION = 30 * 60 * 1000; // 30 minutes block
 const ALLOW_DURATION = 60 * 60 * 1000; // 1 hour allow after block
 const LOGIN_MAX_ATTEMPTS = 10; // Max failed login attempts per window
 const LOGIN_BLOCK_DURATION = 5 * 60 * 1000; // 5 minutes block for failed logins
+const LOGIN_WINDOW_MS = 15 * 60 * 1000; // 15 minutes window for login attempts
 
 // Cleanup old entries every 5 minutes
 setInterval(() => {
@@ -61,7 +62,12 @@ const ddosLimiter = (req: express.Request, res: express.Response, next: express.
   
   // Initialize or update IP data
   if (!ipData || ipData.resetTime < now - WINDOW_MS) {
-    ipData = { count: 0, resetTime: now, blocked: false, blockUntil: 0, loginAttempts: 0 };
+    ipData = { count: 0, resetTime: now, blocked: false, blockUntil: 0, loginAttempts: 0, loginResetTime: now };
+  }
+  
+  // Ensure loginResetTime exists
+  if (!ipData.loginResetTime) {
+    ipData.loginResetTime = now;
   }
   
   ipData.count++;
@@ -120,7 +126,13 @@ app.use('/api/auth/login', (req: express.Request, res: express.Response, next: e
   
   // Initialize if not exists
   if (!ipData) {
-    ipData = { count: 0, resetTime: now, blocked: false, blockUntil: 0, loginAttempts: 0 };
+    ipData = { count: 0, resetTime: now, blocked: false, blockUntil: 0, loginAttempts: 0, loginResetTime: now };
+  }
+  
+  // Reset login attempts if the login window has passed
+  if (!ipData.loginResetTime || ipData.loginResetTime < now - LOGIN_WINDOW_MS) {
+    ipData.loginAttempts = 0;
+    ipData.loginResetTime = now;
   }
   
   // Check if login is blocked due to failed attempts
@@ -129,7 +141,9 @@ app.use('/api/auth/login', (req: express.Request, res: express.Response, next: e
     return res.status(429).json({
       error: 'Too Many Requests',
       message: `Слишком много неудачных попыток входа. Попробуйте через ${remainingTime} минут`,
-      blockedUntil: new Date(ipData.blockUntil).toISOString()
+      blockedUntil: new Date(ipData.blockUntil).toISOString(),
+      loginAttempts: ipData.loginAttempts,
+      maxAttempts: LOGIN_MAX_ATTEMPTS
     });
   }
   
@@ -163,6 +177,35 @@ app.post('/api/admin/clear-rate-limits', (req: express.Request, res: express.Res
   }
   rateLimitStore.clear();
   res.json({ success: true, message: 'Rate limits cleared' });
+});
+
+// Endpoint to get login attempt info for the frontend
+app.get('/api/auth/login-attempts', (req: express.Request, res: express.Response) => {
+  const ip = req.ip || req.socket.remoteAddress || 'unknown';
+  const now = Date.now();
+  
+  const ipData = rateLimitStore.get(ip);
+  
+  if (!ipData) {
+    return res.json({
+      attempts: 0,
+      maxAttempts: LOGIN_MAX_ATTEMPTS,
+      remainingAttempts: LOGIN_MAX_ATTEMPTS,
+      isBlocked: false,
+      blockedUntil: null
+    });
+  }
+  
+  const isBlocked = ipData.loginAttempts >= LOGIN_MAX_ATTEMPTS && ipData.blockUntil > now;
+  const remainingAttempts = Math.max(0, LOGIN_MAX_ATTEMPTS - (ipData.loginAttempts || 0));
+  
+  res.json({
+    attempts: ipData.loginAttempts || 0,
+    maxAttempts: LOGIN_MAX_ATTEMPTS,
+    remainingAttempts,
+    isBlocked,
+    blockedUntil: isBlocked ? new Date(ipData.blockUntil).toISOString() : null
+  });
 });
 
 // Error handling

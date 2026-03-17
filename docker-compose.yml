@@ -4,7 +4,7 @@ services:
     container_name: pfm-db
     restart: unless-stopped
     env_file:
-      - .env.example
+      - .env
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-pfm}
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
@@ -37,7 +37,7 @@ services:
     container_name: pfm-backend
     restart: unless-stopped
     env_file:
-      - .env.example
+      - .env
     environment:
       DB_HOST: ${DB_HOST:-db}
       DB_PORT: ${DB_PORT:-5432}
@@ -75,7 +75,7 @@ services:
     container_name: pfm-frontend
     restart: unless-stopped
     env_file:
-      - .env.example
+      - .env
     environment:
       VITE_APP_MODE: ${APP_MODE:-production}
       VITE_USE_MOCK_DATA: ${USE_MOCK_DATA:-false}

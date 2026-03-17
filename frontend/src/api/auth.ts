@@ -29,7 +29,33 @@ export interface AuthResponse {
 
 const API_BASE_URL = '/api/auth';
 
+// Интерфейс для информации о попытках входа
+export interface LoginAttemptsInfo {
+  attempts: number;
+  maxAttempts: number;
+  remainingAttempts: number;
+  isBlocked: boolean;
+  blockedUntil: string | null;
+}
+
 export const authApi = {
+  // Получить информацию о попытках входа
+  async getLoginAttempts(): Promise<LoginAttemptsInfo> {
+    const response = await fetch(`${API_BASE_URL}/login-attempts`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ message: 'Ошибка получения информации' }));
+      throw new Error(error.message || 'Ошибка получения информации');
+    }
+
+    return response.json();
+  },
+
   // Вход в систему
   async login(credentials: LoginRequest): Promise<AuthResponse> {
     const response = await fetch(`${API_BASE_URL}/login`, {
