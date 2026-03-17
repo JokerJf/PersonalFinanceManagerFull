@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { authApi, LoginRequest, RegisterRequest, LoginAttemptsInfo } from '@/api/auth';
+import { authApi, LoginRequest, RegisterRequest } from '@/api/auth';
 import { isDevelopment } from '@/lib/env';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,25 +14,6 @@ const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  const [loginAttemptsInfo, setLoginAttemptsInfo] = useState<LoginAttemptsInfo | null>(null);
-  const [isLoadingAttempts, setIsLoadingAttempts] = useState(true);
-
-  // Загрузка информации о попытках входа
-  useEffect(() => {
-    const fetchLoginAttempts = async () => {
-      try {
-        const info = await authApi.getLoginAttempts();
-        setLoginAttemptsInfo(info);
-      } catch (error) {
-        // Игнорируем ошибку - просто не показываем счётчик
-        console.error('Failed to fetch login attempts:', error);
-      } finally {
-        setIsLoadingAttempts(false);
-      }
-    };
-
-    fetchLoginAttempts();
-  }, []);
 
   // Режим определяется один раз при загрузке - это константа
   const isDevMode = isDevelopment();
@@ -79,21 +60,6 @@ const Login = () => {
         // Перенаправляем на главную страницу
         window.location.href = '/';
       }
-    } catch (err: any) {
-      // Обновляем информацию о попытках после ошибки
-      try {
-        const info = await authApi.getLoginAttempts();
-        setLoginAttemptsInfo(info);
-      } catch {}
-      
-      // Обработка ошибки rate limit
-      if (err.message && err.message.includes('429')) {
-        setError('Слишком много попыток входа. Попробуйте позже.');
-      } else if (err.message && err.message.includes('неудачных попыток')) {
-        setError(err.message);
-      } else {
-        setError(err instanceof Error ? err.message : 'Произошла ошибка');
-      }
     } finally {
       setIsLoading(false);
     }
@@ -138,22 +104,6 @@ const Login = () => {
               <div className="p-3 rounded-xl bg-destructive/10 border border-destructive/20 text-destructive text-sm flex items-center gap-2">
                 <AlertTriangle size={16} />
                 {error}
-              </div>
-            )}
-
-            {/* Login attempts counter */}
-            {!isLoadingAttempts && loginAttemptsInfo && loginAttemptsInfo.attempts > 0 && (
-              <div className={`p-3 rounded-xl text-sm flex items-center gap-2 ${
-                loginAttemptsInfo.isBlocked 
-                  ? 'bg-destructive/10 border border-destructive/20 text-destructive' 
-                  : 'bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400'
-              }`}>
-                <AlertTriangle size={16} />
-                {loginAttemptsInfo.isBlocked ? (
-                  <span>Вход заблокирован. Попробуйте позже.</span>
-                ) : (
-                  <span>Осталось попыток: {loginAttemptsInfo.remainingAttempts} из {loginAttemptsInfo.maxAttempts}</span>
-                )}
               </div>
             )}
 
@@ -256,16 +206,11 @@ const Login = () => {
             {/* Submit Button */}
             <Button
               type="submit"
-              disabled={isLoading || (loginAttemptsInfo !== null && loginAttemptsInfo.isBlocked)}
+              disabled={isLoading}
               className="w-full h-12 rounded-xl bg-primary hover:bg-primary/90 text-white font-semibold flex items-center justify-center gap-2 transition-all"
             >
               {isLoading ? (
                 <Loader2 className="animate-spin" size={20} />
-              ) : loginAttemptsInfo !== null && loginAttemptsInfo.isBlocked ? (
-                <>
-                  <AlertTriangle size={20} />
-                  Вход заблокирован
-                </>
               ) : isLogin ? (
                 <>
                   <LogIn size={20} />

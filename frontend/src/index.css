@@ -469,3 +469,35 @@
     font-size: 0.8125rem;
   }
 }
+
+/* Recharts custom styles for Balance Trend in Analytics */
+.recharts-responsive-container.balance-trend-chart {
+  height: 200px !important;
+  max-width: 400px;
+  margin: 0 auto;
+}
+
+.recharts-wrapper.balance-trend-chart {
+  max-height: 200px;
+}
+
+/* Fix for chart lines - leave space on edges */
+.balance-trend-chart.recharts-wrapper {
+  max-width: 400px;
+  margin: 0 auto;
+  padding: 0 10px;
+  box-sizing: border-box;
+}
+
+.balance-trend-chart .recharts-surface {
+  overflow: visible;
+}
+
+/* General recharts wrapper fix */
+.recharts-wrapper {
+  overflow: visible !important;
+}
+
+.recharts-surface {
+  overflow: visible;
+}

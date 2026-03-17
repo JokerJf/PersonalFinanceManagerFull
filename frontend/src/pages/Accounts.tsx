@@ -42,14 +42,22 @@ const Accounts = () => {
   };
 
   const handleAdd = async (account: Omit<Account, "id">) => {
-    await addAccount(account);
+    try {
+      await addAccount(account);
 
-    toast({
-      title: t("accounts.toasts.accountAdded.title"),
-      description: t("accounts.toasts.accountAdded.description", {
-        name: account.name,
-      }),
-    });
+      toast({
+        title: t("accounts.toasts.accountAdded.title"),
+        description: t("accounts.toasts.accountAdded.description", {
+          name: account.name,
+        }),
+      });
+    } catch (error) {
+      toast({
+        title: t("common.error"),
+        description: t("accounts.toasts.accountAddedError"),
+        variant: "destructive",
+      });
+    }
   };
 
   const toggleReveal = (id: string) => {

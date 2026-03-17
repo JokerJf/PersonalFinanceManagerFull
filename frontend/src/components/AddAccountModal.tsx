@@ -52,7 +52,8 @@ const networkCurrencies: Record<string, string> = {
 };
 
 const formatCardNumber = (value: string): string => {
-  return value.replace(/\s/g, "").replace(/(\d{4})(?=\d)/g, "$1 ").trim();
+  const digits = value.replace(/\D/g, "");
+  return digits.replace(/(\d{4})(?=\d)/g, "$1 ").trim();
 };
 
 const formatExpiryDate = (value: string): string => {
@@ -216,6 +217,7 @@ const AddAccountModal = ({ open, onOpenChange, onAdd }: AddAccountModalProps) =>
                   }}
                   placeholder={t("accountForm.placeholders.cardNumber")}
                   maxLength={19}
+                  inputMode="numeric"
                   className={`w-full rounded-2xl input-bg text-slate-900 dark:text-white px-4 py-3 text-sm focus:ring-2 focus:ring-primary outline-none shadow-sm ${errors.cardNumber ? "border-red-500 border-2" : ""}`}
                 />
                 {errors.cardNumber && <p className="text-red-500 text-xs mt-1">{errors.cardNumber}</p>}
@@ -228,14 +230,12 @@ const AddAccountModal = ({ open, onOpenChange, onAdd }: AddAccountModalProps) =>
                   value={newExpiryDate}
                   onChange={(e) => {
                     const val = formatExpiryDate(e.target.value);
-                    // Allow only digits and /
-                    if (/^[\d/]*$/.test(val)) {
-                      setNewExpiryDate(val);
-                      if (errors.expiryDate) setErrors({ ...errors, expiryDate: undefined });
-                    }
+                    setNewExpiryDate(val);
+                    if (errors.expiryDate) setErrors({ ...errors, expiryDate: undefined });
                   }}
                   placeholder={t("accountForm.placeholders.expiryDate")}
                   maxLength={5}
+                  inputMode="numeric"
                   className={`w-full rounded-2xl input-bg text-slate-900 dark:text-white px-4 py-3 text-sm focus:ring-2 focus:ring-primary outline-none shadow-sm ${errors.expiryDate ? "border-red-500 border-2" : ""}`}
                 />
                 {errors.expiryDate && <p className="text-red-500 text-xs mt-1">{errors.expiryDate}</p>}

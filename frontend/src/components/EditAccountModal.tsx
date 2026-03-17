@@ -13,6 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { toast } from "@/hooks/use-toast";
 
 interface EditAccountModalProps {
   account: Account | null;
@@ -76,7 +77,7 @@ const EditAccountModal = ({ account, open, onOpenChange, onSave }: EditAccountMo
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     // Валидация
@@ -109,8 +110,13 @@ const EditAccountModal = ({ account, open, onOpenChange, onSave }: EditAccountMo
     setErrors({});
     
     if (formData.id && formData.name) {
-      onSave(formData as Account);
-      onOpenChange(false);
+      try {
+        await onSave(formData as Account);
+        onOpenChange(false);
+        toast({ title: "Успешно", description: "Счёт обновлён" });
+      } catch (error) {
+        toast({ title: "Ошибка", description: "Не удалось обновить счёт", variant: "destructive" });
+      }
     }
   };
 
@@ -173,6 +179,7 @@ const EditAccountModal = ({ account, open, onOpenChange, onSave }: EditAccountMo
                   }} 
                   placeholder="1234 5678 9012 3456" 
                   maxLength={19}
+                  inputMode="numeric"
                   className={`w-full rounded-2xl input-bg text-slate-900 dark:text-white px-4 py-3 text-sm focus:ring-2 focus:ring-primary outline-none shadow-sm ${errors.cardNumber ? "border-red-500 border-2" : ""}`} 
                 />
                 {errors.cardNumber && <p className="text-red-500 text-xs mt-1">{errors.cardNumber}</p>}
@@ -183,13 +190,12 @@ const EditAccountModal = ({ account, open, onOpenChange, onSave }: EditAccountMo
                   value={formData.expiryDate || ""} 
                   onChange={(e) => {
                     const val = formatExpiryDate(e.target.value);
-                    if (/^[\d/]*$/.test(val)) {
-                      handleChange("expiryDate", val);
-                      if (errors.expiryDate) setErrors({ ...errors, expiryDate: undefined });
-                    }
+                    handleChange("expiryDate", val);
+                    if (errors.expiryDate) setErrors({ ...errors, expiryDate: undefined });
                   }} 
                   placeholder="MM/YY" 
                   maxLength={5}
+                  inputMode="numeric"
                   className={`w-full rounded-2xl input-bg text-slate-900 dark:text-white px-4 py-3 text-sm focus:ring-2 focus:ring-primary outline-none shadow-sm ${errors.expiryDate ? "border-red-500 border-2" : ""}`} 
                 />
                 {errors.expiryDate && <p className="text-red-500 text-xs mt-1">{errors.expiryDate}</p>}

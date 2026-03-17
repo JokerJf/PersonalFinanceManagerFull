@@ -344,14 +344,19 @@ function AddTransactionModal({
         // Обновляем счёта с сервера для получения актуального баланса
         const updatedAccounts = await api.accounts.getAllAccounts(workspace);
         setAccounts(updatedAccounts);
+
+        toast({
+          title: t("transactionForm.toasts.updated.title"),
+          description: t("transactionForm.toasts.updated.description"),
+        });
       } catch (error) {
         console.error("Error updating transaction:", error);
+        toast({
+          title: t("common.error"),
+          description: t("transactionForm.toasts.error.updateFailed"),
+          variant: "destructive",
+        });
       }
-
-      toast({
-        title: t("transactionForm.toasts.updated.title"),
-        description: t("transactionForm.toasts.updated.description"),
-      });
 
       handleClose();
       if (onClose) onClose();
@@ -414,17 +419,22 @@ function AddTransactionModal({
         type: (newTx.type as string).toLowerCase() as Transaction["type"]
       };
       setTransactions([savedTx, ...transactions]);
+
+      toast({
+        title: t("transactionForm.toasts.created.title"),
+        description: t("transactionForm.toasts.created.description"),
+      });
     } catch (error) {
       console.error("Error creating transaction:", error);
       // Fallback: используем локальную транзакцию
       const localTx: Transaction = { ...tx, id: `tx-${Date.now()}` };
       setTransactions([localTx, ...transactions]);
+      toast({
+        title: t("common.error"),
+        description: t("transactionForm.toasts.error.createFailed"),
+        variant: "destructive",
+      });
     }
-
-    toast({
-      title: t("transactionForm.toasts.created.title"),
-      description: t("transactionForm.toasts.created.description"),
-    });
 
     handleClose();
     if (onClose) onClose();

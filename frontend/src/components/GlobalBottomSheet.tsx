@@ -119,7 +119,13 @@ const GlobalBottomSheet = () => {
               {/* Header with Actions */}
               <div className="px-4 pb-4 flex items-center justify-between shrink-0">
                 <button 
-                  onClick={() => toggleAccountInBalance(selectedCard.id)}
+                  onClick={async () => {
+                    try {
+                      await toggleAccountInBalance(selectedCard.id);
+                    } catch (error) {
+                      toast({ title: "Error", description: "Failed to update account.", variant: "destructive" });
+                    }
+                  }}
                   className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl transition-colors shadow-sm ${selectedCard.includedInBalance !== false ? "bg-warning/20 text-warning" : "btn-secondary"}`}
                 >
                   {selectedCard.includedInBalance !== false ? (
@@ -150,10 +156,14 @@ const GlobalBottomSheet = () => {
                     </DropdownMenuItem>
                     <DropdownMenuItem 
                       className="flex items-center gap-3 text-destructive focus:bg-red-100 dark:focus:bg-red-900/30 cursor-pointer"
-                      onClick={() => {
-                        deleteAccount(selectedCard.id);
-                        setSelectedCardId(null);
-                        toast({ title: "Deleted", description: "Account has been deleted." });
+                      onClick={async () => {
+                        try {
+                          await deleteAccount(selectedCard.id);
+                          setSelectedCardId(null);
+                          toast({ title: "Deleted", description: "Account has been deleted." });
+                        } catch (error) {
+                          toast({ title: "Error", description: "Failed to delete account.", variant: "destructive" });
+                        }
                       }}
                     >
                       <Trash2 size={16} />
@@ -310,10 +320,14 @@ const GlobalBottomSheet = () => {
                   Edit
                 </button>
                 <button
-                  onClick={() => {
-                    deleteTransaction(selectedTx.id);
-                    setSelectedTransactionId(null);
-                    toast({ title: "Deleted", description: "Transaction has been deleted." });
+                  onClick={async () => {
+                    try {
+                      await deleteTransaction(selectedTx.id);
+                      setSelectedTransactionId(null);
+                      toast({ title: "Deleted", description: "Transaction has been deleted." });
+                    } catch (error) {
+                      toast({ title: "Error", description: "Failed to delete transaction.", variant: "destructive" });
+                    }
                   }}
                   className="flex-1 py-3 rounded-2xl bg-destructive/20 dark:bg-[#2a2f3c4d] text-destructive flex items-center justify-center gap-2 text-sm font-semibold hover:bg-destructive/30 transition-colors shadow-sm"
                 >

@@ -231,16 +231,28 @@ const Analytics = () => {
           isSameDay(new Date(tx.date), current)
         );
 
+        // Доходы за день (включая переводы на счёт)
+        const income = dayTransactions
+          .filter((tx) => tx.type === "income")
+          .reduce((sum, tx) => sum + Number(tx.amount) || 0, 0)
+          + dayTransactions
+            .filter((tx) => tx.type === "transfer" && tx.toAccountId === selectedAccountId)
+            .reduce((sum, tx) => sum + Number(tx.toAmount || tx.amount) || 0, 0);
+
+        // Расходы за день (включая переводы со счёта)
+        const expenses = dayTransactions
+          .filter((tx) => tx.type === "expense")
+          .reduce((sum, tx) => sum + Number(tx.amount) || 0, 0)
+          + dayTransactions
+            .filter((tx) => tx.type === "transfer" && tx.accountId === selectedAccountId)
+            .reduce((sum, tx) => sum + Number(tx.amount) || 0, 0);
+
         return {
           label: current.toLocaleDateString(i18n.language === "uz" ? "uz-UZ" : "ru-RU", {
             weekday: "short",
           }),
-          income: dayTransactions
-            .filter((tx) => tx.type === "income")
-            .reduce((sum, tx) => sum + Number(tx.amount) || 0, 0),
-          expenses: dayTransactions
-            .filter((tx) => tx.type === "expense")
-            .reduce((sum, tx) => sum + Number(tx.amount) || 0, 0),
+          income,
+          expenses,
         };
       });
     }
@@ -256,14 +268,26 @@ const Analytics = () => {
           return d.getDate() === day;
         });
 
+        // Доходы за день (включая переводы на счёт)
+        const income = dayTransactions
+          .filter((tx) => tx.type === "income")
+          .reduce((sum, tx) => sum + Number(tx.amount) || 0, 0)
+          + dayTransactions
+            .filter((tx) => tx.type === "transfer" && tx.toAccountId === selectedAccountId)
+            .reduce((sum, tx) => sum + Number(tx.toAmount || tx.amount) || 0, 0);
+
+        // Расходы за день (включая переводы со счёта)
+        const expenses = dayTransactions
+          .filter((tx) => tx.type === "expense")
+          .reduce((sum, tx) => sum + Number(tx.amount) || 0, 0)
+          + dayTransactions
+            .filter((tx) => tx.type === "transfer" && tx.accountId === selectedAccountId)
+            .reduce((sum, tx) => sum + Number(tx.amount) || 0, 0);
+
         return {
           label: `${day}`,
-          income: dayTransactions
-            .filter((tx) => tx.type === "income")
-            .reduce((sum, tx) => sum + Number(tx.amount) || 0, 0),
-          expenses: dayTransactions
-            .filter((tx) => tx.type === "expense")
-            .reduce((sum, tx) => sum + Number(tx.amount) || 0, 0),
+          income,
+          expenses,
         };
       });
     }
@@ -271,27 +295,109 @@ const Analytics = () => {
     return Array.from({ length: 12 }, (_, monthIndex) => {
       const monthTransactions = transactions.filter((tx) => {
         const d = new Date(tx.date);
-        return d.getFullYear() === now.getFullYear() && d.getMonth() === monthIndex;
+        return d.getFullYear() === now.getFullYear() && d.getMonth() === monthIndex && tx.accountId === selectedAccountId;
       });
+
+      // Доходы за месяц (включая переводы на счёт)
+      const income = monthTransactions
+        .filter((tx) => tx.type === "income")
+        .reduce((sum, tx) => sum + Number(tx.amount) || 0, 0)
+        + transactions
+          .filter((tx) => {
+            const d = new Date(tx.date);
+            return d.getFullYear() === now.getFullYear() && d.getMonth() === monthIndex && tx.type === "transfer" && tx.toAccountId === selectedAccountId;
+          })
+          .reduce((sum, tx) => sum + Number(tx.toAmount || tx.amount) || 0, 0);
+
+      // Расходы за месяц (включая переводы со счёта)
+      const expenses = monthTransactions
+        .filter((tx) => tx.type === "expense")
+        .reduce((sum, tx) => sum + Number(tx.amount) || 0, 0)
+        + transactions
+          .filter((tx) => {
+            const d = new Date(tx.date);
+            return d.getFullYear() === now.getFullYear() && d.getMonth() === monthIndex && tx.type === "transfer" && tx.accountId === selectedAccountId;
+          })
+          .reduce((sum, tx) => sum + Number(tx.amount) || 0, 0);
 
       return {
         label: new Date(now.getFullYear(), monthIndex, 1).toLocaleDateString(
           i18n.language === "uz" ? "uz-UZ" : "ru-RU",
           { month: "short" }
         ),
-        income: monthTransactions
-          .filter((tx) => tx.type === "income")
-          .reduce((sum, tx) => sum + Number(tx.amount) || 0, 0),
-        expenses: monthTransactions
-          .filter((tx) => tx.type === "expense")
-          .reduce((sum, tx) => sum + Number(tx.amount) || 0, 0),
+        income,
+        expenses,
       };
     });
   }, [filteredTransactions, transactions, period, i18n.language]);
 
   const lineData = useMemo(() => {
-    let runningBalance = 0;
+    if (!selectedAccount) {
+      return barData.map((item) => ({
+        label: item.label,
+        balance: 0,
+      }));
+    }
 
+    // Для периода "day" используем специальную логику
+    if (period === "day") {
+      // Начальный баланс = текущий баланс - (доходы за день - расходы за день)
+      const dayIncome = filteredTransactions
+        .filter((tx) => tx.type === "income" || (tx.type === "transfer" && tx.toAccountId === selectedAccountId))
+        .reduce((sum, tx) => {
+          if (tx.type === "transfer" && tx.toAccountId === selectedAccountId) {
+            return sum + Number(tx.toAmount || tx.amount);
+          }
+          return sum + Number(tx.amount);
+        }, 0);
+      
+      const dayExpenses = filteredTransactions
+        .filter((tx) => tx.type === "expense" || (tx.type === "transfer" && tx.accountId === selectedAccountId))
+        .reduce((sum, tx) => sum + Number(tx.amount), 0);
+
+      // Начальный баланс на 00:00 = текущий баланс - (доходы за день - расходы за день)
+      let runningBalance = selectedAccount.balance - (dayIncome - dayExpenses);
+
+      // Сортируем транзакции по времени
+      const sortedTransactions = [...filteredTransactions].sort(
+        (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+      );
+
+      // Создаём карту доходов/расходов по часам
+      const hourData: Record<number, { income: number; expenses: number }> = {};
+      for (let h = 0; h < 24; h++) {
+        hourData[h] = { income: 0, expenses: 0 };
+      }
+
+      sortedTransactions.forEach((tx) => {
+        const hour = new Date(tx.date).getHours();
+        if (tx.type === "income" || (tx.type === "transfer" && tx.toAccountId === selectedAccountId)) {
+          const amount = tx.type === "transfer" ? Number(tx.toAmount || tx.amount) : Number(tx.amount);
+          hourData[hour].income += amount;
+        } else if (tx.type === "expense" || (tx.type === "transfer" && tx.accountId === selectedAccountId)) {
+          hourData[hour].expenses += Number(tx.amount);
+        }
+      });
+
+      // Строим данные для графика
+      return Array.from({ length: 24 }, (_, hour) => {
+        const hourInfo = hourData[hour];
+        runningBalance += hourInfo.income - hourInfo.expenses;
+        return {
+          label: `${hour}:00`,
+          balance: runningBalance,
+        };
+      });
+    }
+
+    // Для периодов "week", "month", "year" используем обратный отсчёт
+    // Начальный баланс = текущий баланс - (общий доход за период - общий расход за период)
+    // barData уже содержит правильные значения с учётом переводов
+    const totalPeriodIncome = barData.reduce((sum, item) => sum + item.income, 0);
+    const totalPeriodExpenses = barData.reduce((sum, item) => sum + item.expenses, 0);
+    let runningBalance = selectedAccount.balance - (totalPeriodIncome - totalPeriodExpenses);
+
+    // Строим данные для графика
     return barData.map((item) => {
       runningBalance += item.income - item.expenses;
       return {
@@ -299,7 +405,7 @@ const Analytics = () => {
         balance: runningBalance,
       };
     });
-  }, [barData]);
+  }, [barData, selectedAccount, filteredTransactions, period, selectedAccountId]);
 
   const formatMoney = (value: number, currency?: string) => {
     // Handle NaN and invalid values
@@ -523,8 +629,8 @@ const Analytics = () => {
       <div className="rounded-3xl border border-border/30 p-5 card-container">
         <h3 className="section-title mb-4">{t("analytics.balanceTrend")}</h3>
 
-        <ResponsiveContainer width="100%" height={160}>
-          <LineChart data={lineData}>
+        <ResponsiveContainer width="100%" height={200} className="balance-trend-chart">
+          <LineChart data={lineData} className="balance-trend-chart">
             <CartesianGrid
               strokeDasharray="3 3"
               vertical={false}
@@ -558,6 +664,7 @@ const Analytics = () => {
               stroke="hsl(225, 73%, 57%)"
               strokeWidth={2.5}
               dot={{ fill: "hsl(225, 73%, 57%)", r: 3, strokeWidth: 0 }}
+              isAnimationActive={false}
             />
           </LineChart>
         </ResponsiveContainer>

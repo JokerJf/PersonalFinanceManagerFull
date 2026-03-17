@@ -756,15 +756,22 @@ const SettingsPage = () => {
 
                 <Switch
                   checked={account.includedInBalance !== false}
-                  onCheckedChange={() => {
-                    toggleAccountInBalance(account.id);
-                    toast({
-                      title: t("settings.toasts.accountBalanceUpdated.title"),
-                      description:
-                        account.includedInBalance !== false
-                          ? t("settings.toasts.accountBalanceUpdated.removed", { account: account.name })
-                          : t("settings.toasts.accountBalanceUpdated.added", { account: account.name }),
-                    });
+                  onCheckedChange={async () => {
+                    try {
+                      await toggleAccountInBalance(account.id);
+                      toast({
+                        title: t("settings.toasts.accountBalanceUpdated.title"),
+                        description:
+                          account.includedInBalance !== false
+                            ? t("settings.toasts.accountBalanceUpdated.removed", { account: account.name })
+                            : t("settings.toasts.accountBalanceUpdated.added", { account: account.name }),
+                      });
+                    } catch (error) {
+                      toast({
+                        title: t("common.error"),
+                        variant: "destructive",
+                      });
+                    }
                   }}
                 />
               </div>
