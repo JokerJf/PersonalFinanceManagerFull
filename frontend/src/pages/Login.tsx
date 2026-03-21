@@ -332,18 +332,7 @@ const Login = () => {
           </div>
         </div>
 
-        {/* Skip for now - только в development режиме */}
-        {isDevMode && (
-          <div className="mt-6 text-center">
-            <button
-              type="button"
-              onClick={handleSkip}
-              className="text-sm text-muted-foreground dark:text-white/40 hover:text-primary transition-colors"
-            >
-              Продолжить без входа (Dev режим)
-            </button>
-          </div>
-        )}
+
       </div>
     </div>
   );
