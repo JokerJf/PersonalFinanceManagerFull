@@ -150,4 +150,51 @@ router.post('/change-password', async (req, res, next) => {
   }
 });
 
+// Обновление профиля пользователя
+router.put('/profile', async (req, res, next) => {
+  try {
+    // Получаем userId из токена
+    const authHeader = req.headers.authorization;
+    if (!authHeader) {
+      throw new ApiError('No token provided', 401);
+    }
+    
+    const token = authHeader.replace('Bearer ', '');
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key') as { userId: number };
+    
+    const user = await userRepository().findOne({ where: { id: decoded.userId } });
+    if (!user) {
+      throw new ApiError('User not found', 404);
+    }
+    
+    const { firstName, lastName, email } = req.body;
+    
+    // Если изменяется email, проверяем, что он не занят
+    if (email && email !== user.email) {
+      const existingUser = await userRepository().findOne({ where: { email } });
+      if (existingUser) {
+        throw new ApiError('Email already exists', 400);
+      }
+      user.email = email;
+    }
+    
+    if (firstName) user.firstName = firstName;
+    if (lastName) user.lastName = lastName;
+    
+    await userRepository().save(user);
+    
+    res.json({
+      success: true,
+      data: {
+        id: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 export default router;

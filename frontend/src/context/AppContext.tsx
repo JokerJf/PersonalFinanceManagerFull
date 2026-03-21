@@ -818,6 +818,16 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     document.documentElement.classList.toggle("dark");
   };
 
+  // Применяем класс dark при изменении состояния
+  useEffect(() => {
+    document.documentElement.classList.toggle("dark", darkMode);
+  }, [darkMode]);
+
+  // Применяем класс dark при начальной загрузке
+  useEffect(() => {
+    document.documentElement.classList.toggle("dark", darkMode);
+  }, []);
+
   // Сохраняем darkMode и familyEnabled в localStorage
   useEffect(() => {
     localStorage.setItem('workspace', workspace);
