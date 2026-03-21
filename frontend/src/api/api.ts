@@ -955,7 +955,15 @@ export const budgetsApi = {
           accountId: data.accountId,
           monthKey: data.monthKey,
           totalIncomePlan: Number(data.totalIncomePlan) || 0,
-          totalExpensePlan: Number(data.totalExpensePlan) || 0
+          totalExpensePlan: Number(data.totalExpensePlan) || 0,
+          categoryLimits: data.categoryLimits?.map((l: any) => ({
+            category: l.category,
+            limitAmount: Number(l.limit) || 0
+          })),
+          incomePlanItems: data.incomePlanItems?.map((i: any) => ({
+            category: i.category,
+            plannedAmount: Number(i.plannedAmount) || 0
+          }))
         };
       } else {
         const data = await fetchFromApi<any>('/budgets', {
@@ -974,7 +982,15 @@ export const budgetsApi = {
           accountId: data.accountId,
           monthKey: data.monthKey,
           totalIncomePlan: Number(data.totalIncomePlan) || 0,
-          totalExpensePlan: Number(data.totalExpensePlan) || 0
+          totalExpensePlan: Number(data.totalExpensePlan) || 0,
+          categoryLimits: data.categoryLimits?.map((l: any) => ({
+            category: l.category,
+            limitAmount: Number(l.limit) || 0
+          })),
+          incomePlanItems: data.incomePlanItems?.map((i: any) => ({
+            category: i.category,
+            plannedAmount: Number(i.plannedAmount) || 0
+          }))
         };
       }
     }

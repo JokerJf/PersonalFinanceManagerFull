@@ -292,53 +292,57 @@ const Budget = () => {
     setSelectedMonth(formatMonthKey(nextDate));
   };
 
-  const savePlan = async (plannedIncome: number, plannedExpense: number) => {
+  const savePlan = async (plannedIncome: number, plannedExpense: number): Promise<boolean> => {
     try {
       // Если оба значения 0 и есть бюджет - удаляем его
       if (plannedIncome === 0 && plannedExpense === 0 && backendBudget?.id) {
         await api.budgets.deleteBudget(backendBudget.id);
         setBackendBudget(null);
-        return;
+        return true;
       }
 
       // Сохраняем бюджет
       const savedBudget = await api.budgets.saveBudget({
         id: backendBudget?.id,
         monthKey: selectedMonth,
-        accountId: selectedAccountId,
+        accountId: selectedAccountId || undefined,
         totalIncomePlan: plannedIncome,
         totalExpensePlan: plannedExpense
       });
       
       // После сохранения перезагружаем бюджет с сервера для получения актуальных данных
-      const refreshedBudget = await api.budgets.getBudgetByMonth(selectedMonth, selectedAccountId);
+      const refreshedBudget = await api.budgets.getBudgetByMonth(selectedMonth, selectedAccountId || undefined);
       setBackendBudget(refreshedBudget);
+      return true;
     } catch (error) {
       console.error('Error saving budget:', error);
+      return false;
     }
   };
 
-  const handleSaveIncomeItem = async (category: string, amount: number) => {
-    if (!backendBudget?.id) return;
+  const handleSaveIncomeItem = async (category: string, amount: number): Promise<boolean> => {
+    if (!backendBudget?.id) return false;
     try {
       await api.budgets.saveBudget({
         id: backendBudget.id,
         monthKey: selectedMonth,
-        accountId: selectedAccountId,
+        accountId: selectedAccountId || undefined,
         totalIncomePlan: backendBudget.totalIncomePlan || 0,
         totalExpensePlan: backendBudget.totalExpensePlan || 0,
         incomePlanItems: [...(backendBudget.incomePlanItems || []).filter(i => i.category !== category), { category, plannedAmount: amount }]
       });
       // Перезагружаем бюджет с сервера для получения актуальных данных
-      const refreshedBudget = await api.budgets.getBudgetByMonth(selectedMonth, selectedAccountId);
+      const refreshedBudget = await api.budgets.getBudgetByMonth(selectedMonth, selectedAccountId || undefined);
       setBackendBudget(refreshedBudget);
+      return true;
     } catch (error) {
       console.error('Error saving income item:', error);
+      return false;
     }
   };
 
-  const handleSaveExpenseLimit = async (category: string, amount: number) => {
-    if (!backendBudget?.id) return;
+  const handleSaveExpenseLimit = async (category: string, amount: number): Promise<boolean> => {
+    if (!backendBudget?.id) return false;
     try {
       // Если редактируем существующий лимит - используем отдельный API
       const existingLimit = backendBudget.categoryLimits?.find(c => c.category === category);
@@ -349,23 +353,27 @@ const Budget = () => {
       }
       
       // Перезагружаем бюджет с сервера для получения актуальных данных
-      const refreshedBudget = await api.budgets.getBudgetByMonth(selectedMonth, selectedAccountId);
+      const refreshedBudget = await api.budgets.getBudgetByMonth(selectedMonth, selectedAccountId || undefined);
       setBackendBudget(refreshedBudget);
       setEditingLimit(null);
+      return true;
     } catch (error) {
       console.error('Error saving expense limit:', error);
+      return false;
     }
   };
 
-  const handleDeleteExpenseLimit = async (category: string) => {
-    if (!backendBudget?.id) return;
+  const handleDeleteExpenseLimit = async (category: string): Promise<boolean> => {
+    if (!backendBudget?.id) return false;
     try {
       await api.budgets.deleteCategoryLimit(backendBudget.id, category);
       // Перезагружаем бюджет с сервера для получения актуальных данных
-      const refreshedBudget = await api.budgets.getBudgetByMonth(selectedMonth, selectedAccountId);
+      const refreshedBudget = await api.budgets.getBudgetByMonth(selectedMonth, selectedAccountId || undefined);
       setBackendBudget(refreshedBudget);
+      return true;
     } catch (error) {
       console.error('Error deleting expense limit:', error);
+      return false;
     }
   };
 
@@ -671,23 +679,35 @@ const PlanDialog = ({
   onOpenChange: (open: boolean) => void;
   initialIncome: number;
   initialExpense: number;
-  onSave: (income: number, expense: number) => void;
+  onSave: (income: number, expense: number) => Promise<boolean>;
 }) => {
   const { t } = useTranslation();
   const [income, setIncome] = useState(initialIncome.toString());
   const [expense, setExpense] = useState(initialExpense.toString());
+  const [isSaving, setIsSaving] = useState(false);
 
-  // Обновляем значения при открытии диалога
+  // Обновляем значения при изменении props или открытии диалога
   useEffect(() => {
-    if (open) {
-      setIncome(initialIncome > 0 ? initialIncome.toString() : "");
-      setExpense(initialExpense > 0 ? initialExpense.toString() : "");
-    }
-  }, [open, initialIncome, initialExpense]);
+    setIncome(initialIncome > 0 ? initialIncome.toString() : "");
+    setExpense(initialExpense > 0 ? initialExpense.toString() : "");
+  }, [initialIncome, initialExpense]);
 
-  const handleSave = () => {
-    onSave(Number(income || 0), Number(expense || 0));
+  const handleSave = async () => {
+    if (isSaving) return;
+    setIsSaving(true);
+    const incomeValue = Number(income || 0);
+    const expenseValue = Number(expense || 0);
+    
+    // Закрываем диалог сразу и затем выполняем сохранение
     onOpenChange(false);
+    
+    try {
+      await onSave(incomeValue, expenseValue);
+    } catch (error) {
+      console.error('Error saving:', error);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -743,19 +763,18 @@ const IncomeDialog = ({
   open: boolean;
   onOpenChange: (open: boolean) => void;
   incomeItems: { category: string; plannedAmount: number }[];
-  onSave: (category: string, amount: number) => void;
+  onSave: (category: string, amount: number) => Promise<boolean>;
 }) => {
   const { t } = useTranslation();
   const [category, setCategory] = useState(incomeCategories[0]);
   const [amount, setAmount] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
 
-  // Обновляем значения при открытии диалога
+  // Обновляем значения при изменении items
   useEffect(() => {
-    if (open) {
-      const existingItem = incomeItems.find(item => item.category === category);
-      setAmount(existingItem ? existingItem.plannedAmount.toString() : "");
-    }
-  }, [open, category, incomeItems]);
+    const existingItem = incomeItems.find(item => item.category === category);
+    setAmount(existingItem ? existingItem.plannedAmount.toString() : "");
+  }, [incomeItems, category]);
 
   const handleCategoryChange = (newCategory: string) => {
     setCategory(newCategory);
@@ -763,11 +782,22 @@ const IncomeDialog = ({
     setAmount(existingItem ? existingItem.plannedAmount.toString() : "");
   };
 
-  const handleSave = () => {
-    if (!amount || Number(amount) < 0) return;
-    onSave(category, Number(amount));
-    setAmount("");
+  const handleSave = async () => {
+    if (!amount || Number(amount) < 0 || isSaving) return;
+    setIsSaving(true);
+    const categoryValue = category;
+    const amountValue = Number(amount);
+    
+    // Закрываем диалог сразу и затем выполняем сохранение
     onOpenChange(false);
+    
+    try {
+      await onSave(categoryValue, amountValue);
+    } catch (error) {
+      console.error('Error saving income item:', error);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -830,25 +860,23 @@ const ExpenseLimitDialog = ({
   onOpenChange: (open: boolean) => void;
   expenseLimits: { category: string; limitAmount: number }[];
   editingLimit?: { category: string; amount: number } | null;
-  onSave: (category: string, amount: number) => void;
+  onSave: (category: string, amount: number) => Promise<boolean>;
 }) => {
   const { t } = useTranslation();
   const [category, setCategory] = useState(expenseCategories[0]);
   const [amount, setAmount] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
 
-  // Обновляем значения при открытии диалога
+  // Обновляем значения при изменении editingLimit или открытии диалога
   useEffect(() => {
-    if (open) {
-      // Если редактируем существующий лимит - используем его значения
-      if (editingLimit) {
-        setCategory(editingLimit.category);
-        setAmount(editingLimit.amount.toString());
-      } else {
-        setCategory(expenseCategories[0]);
-        setAmount("");
-      }
+    if (editingLimit) {
+      setCategory(editingLimit.category);
+      setAmount(editingLimit.amount.toString());
+    } else if (open) {
+      setCategory(expenseCategories[0]);
+      setAmount("");
     }
-  }, [open, editingLimit]);
+  }, [editingLimit, open]);
 
   const handleCategoryChange = (newCategory: string) => {
     setCategory(newCategory);
@@ -856,11 +884,22 @@ const ExpenseLimitDialog = ({
     setAmount(existingItem ? existingItem.limitAmount.toString() : "");
   };
 
-  const handleSave = () => {
-    if (!amount || Number(amount) < 0) return;
-    onSave(category, Number(amount));
-    setAmount("");
+  const handleSave = async () => {
+    if (!amount || Number(amount) < 0 || isSaving) return;
+    setIsSaving(true);
+    const categoryValue = category;
+    const amountValue = Number(amount);
+    
+    // Закрываем диалог сразу и затем выполняем сохранение
     onOpenChange(false);
+    
+    try {
+      await onSave(categoryValue, amountValue);
+    } catch (error) {
+      console.error('Error saving expense limit:', error);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (

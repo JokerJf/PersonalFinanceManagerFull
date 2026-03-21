@@ -56,8 +56,8 @@ export async function createBudget(userId: number, dto: CreateBudgetDto) {
     const budgetData = {
       monthKey: dto.monthKey,
       accountId,
-      totalIncomePlan: dto.totalIncomePlan,
-      totalExpensePlan: dto.totalExpensePlan,
+      totalIncomePlan: dto.totalIncomePlan ?? 0,
+      totalExpensePlan: dto.totalExpensePlan ?? 0,
       userId,
     } as DeepPartial<BudgetPlan>;
     const budget = manager.create(BudgetPlan, budgetData);
@@ -66,7 +66,11 @@ export async function createBudget(userId: number, dto: CreateBudgetDto) {
     if (dto.categoryLimits?.length) await saveCategoryLimits(saved.id, dto.categoryLimits);
     if (dto.incomePlanItems?.length) await saveIncomePlanItems(saved.id, dto.incomePlanItems);
 
-    return findBudgetWithRelations(saved.id);
+    // Return with relations using the same manager
+    return manager.findOne(BudgetPlan, {
+      where: { id: saved.id },
+      relations: ['categoryLimits', 'incomePlanItems'],
+    });
   });
 }
 
@@ -101,7 +105,11 @@ export async function updateBudget(budgetId: number, userId: number, dto: Update
       await saveIncomePlanItems(budgetId, dto.incomePlanItems ?? []);
     }
 
-    return findBudgetWithRelations(budgetId);
+    // Return with relations using the same manager
+    return manager.findOne(BudgetPlan, {
+      where: { id: budgetId },
+      relations: ['categoryLimits', 'incomePlanItems'],
+    });
   });
 }
 
