@@ -310,7 +310,9 @@ const Budget = () => {
         totalExpensePlan: plannedExpense
       });
       
-      setBackendBudget(savedBudget);
+      // После сохранения перезагружаем бюджет с сервера для получения актуальных данных
+      const refreshedBudget = await api.budgets.getBudgetByMonth(selectedMonth, selectedAccountId);
+      setBackendBudget(refreshedBudget);
     } catch (error) {
       console.error('Error saving budget:', error);
     }
@@ -319,7 +321,7 @@ const Budget = () => {
   const handleSaveIncomeItem = async (category: string, amount: number) => {
     if (!backendBudget?.id) return;
     try {
-      const savedBudget = await api.budgets.saveBudget({
+      await api.budgets.saveBudget({
         id: backendBudget.id,
         monthKey: selectedMonth,
         accountId: selectedAccountId,
@@ -327,7 +329,9 @@ const Budget = () => {
         totalExpensePlan: backendBudget.totalExpensePlan || 0,
         incomePlanItems: [...(backendBudget.incomePlanItems || []).filter(i => i.category !== category), { category, plannedAmount: amount }]
       });
-      setBackendBudget(savedBudget);
+      // Перезагружаем бюджет с сервера для получения актуальных данных
+      const refreshedBudget = await api.budgets.getBudgetByMonth(selectedMonth, selectedAccountId);
+      setBackendBudget(refreshedBudget);
     } catch (error) {
       console.error('Error saving income item:', error);
     }
@@ -336,17 +340,17 @@ const Budget = () => {
   const handleSaveExpenseLimit = async (category: string, amount: number) => {
     if (!backendBudget?.id) return;
     try {
-      let savedBudget;
-      
       // Если редактируем существующий лимит - используем отдельный API
       const existingLimit = backendBudget.categoryLimits?.find(c => c.category === category);
       if (existingLimit) {
-        savedBudget = await api.budgets.updateCategoryLimit(backendBudget.id, category, amount);
+        await api.budgets.updateCategoryLimit(backendBudget.id, category, amount);
       } else {
-        savedBudget = await api.budgets.addCategoryLimit(backendBudget.id, category, amount);
+        await api.budgets.addCategoryLimit(backendBudget.id, category, amount);
       }
       
-      setBackendBudget(savedBudget);
+      // Перезагружаем бюджет с сервера для получения актуальных данных
+      const refreshedBudget = await api.budgets.getBudgetByMonth(selectedMonth, selectedAccountId);
+      setBackendBudget(refreshedBudget);
       setEditingLimit(null);
     } catch (error) {
       console.error('Error saving expense limit:', error);
@@ -356,8 +360,10 @@ const Budget = () => {
   const handleDeleteExpenseLimit = async (category: string) => {
     if (!backendBudget?.id) return;
     try {
-      const savedBudget = await api.budgets.deleteCategoryLimit(backendBudget.id, category);
-      setBackendBudget(savedBudget);
+      await api.budgets.deleteCategoryLimit(backendBudget.id, category);
+      // Перезагружаем бюджет с сервера для получения актуальных данных
+      const refreshedBudget = await api.budgets.getBudgetByMonth(selectedMonth, selectedAccountId);
+      setBackendBudget(refreshedBudget);
     } catch (error) {
       console.error('Error deleting expense limit:', error);
     }

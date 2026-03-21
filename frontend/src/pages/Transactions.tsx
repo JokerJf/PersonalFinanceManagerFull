@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { useApp, Transaction } from "@/context/AppContext";
 import { useToast } from "@/hooks/use-toast";
@@ -27,6 +27,25 @@ const {
   const [selectedAccountId, setSelectedAccountId] = useState<string>("all");
   const [showFilters, setShowFilters] = useState(false);
   const [showTypeFilter, setShowTypeFilter] = useState(false);
+  
+  // Refs for click outside detection
+  const accountFilterRef = useRef<HTMLDivElement>(null);
+  const typeFilterRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdowns when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (accountFilterRef.current && !accountFilterRef.current.contains(event.target as Node)) {
+        setShowFilters(false);
+      }
+      if (typeFilterRef.current && !typeFilterRef.current.contains(event.target as Node)) {
+        setShowTypeFilter(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   const filters: { key: Filter; label: string }[] = [
     { key: "all", label: t("transactions.filters.all") },
@@ -146,9 +165,12 @@ const {
       ) : (
         <div className="flex gap-1.5 sm:gap-2">
           {/* Account Filter */}
-          <div className="relative flex-1">
+          <div className="relative flex-1" ref={accountFilterRef}>
             <button
-              onClick={() => setShowFilters(!showFilters)}
+              onClick={() => {
+                setShowFilters(!showFilters);
+                setShowTypeFilter(false);
+              }}
               className="w-full btn-secondary rounded-xl sm:rounded-2xl py-2.5 sm:py-3 px-3 sm:px-4 flex items-center justify-between"
             >
               <span className="text-xs sm:text-sm font-medium text-slate-900 dark:text-white truncate">
@@ -165,6 +187,7 @@ const {
                 <button
                   onClick={() => {
                     setSelectedAccountId("all");
+                    setShowFilters(false);
                   }}
                   className={`w-full text-left px-3 sm:px-4 py-2 text-xs sm:text-sm ${
                     selectedAccountId === "all"
@@ -180,6 +203,7 @@ const {
                     key={account.id}
                     onClick={() => {
                       setSelectedAccountId(account.id);
+                      setShowFilters(false);
                     }}
                     className={`w-full text-left px-3 sm:px-4 py-2 text-xs sm:text-sm ${
                       selectedAccountId === account.id
@@ -195,9 +219,12 @@ const {
           </div>
 
           {/* Type Filter */}
-          <div className="relative flex-1">
+          <div className="relative flex-1" ref={typeFilterRef}>
             <button
-              onClick={() => setShowTypeFilter(!showTypeFilter)}
+              onClick={() => {
+                setShowTypeFilter(!showTypeFilter);
+                setShowFilters(false);
+              }}
               className="w-full btn-secondary rounded-xl sm:rounded-2xl py-2.5 sm:py-3 px-3 sm:px-4 flex items-center justify-between"
             >
               <span className="text-xs sm:text-sm font-medium text-slate-900 dark:text-white capitalize">
@@ -214,7 +241,10 @@ const {
                 {filters.map((f) => (
                   <button
                     key={f.key}
-                    onClick={() => setFilter(f.key)}
+                    onClick={() => {
+                      setFilter(f.key);
+                      setShowTypeFilter(false);
+                    }}
                     className={`w-full text-left px-3 sm:px-4 py-2 text-xs sm:text-sm capitalize ${
                       filter === f.key
                         ? "bg-primary/10 text-primary"
