@@ -29,7 +29,7 @@ const resources = {
                 logout: "Выйти",
 
                 sections: {
-                    account: "Аккаунт",
+                    account: "Настройка общего баланса",
                     preferences: "Предпочтения",
                     balanceAccounts: "Счета в балансе",
                     aiFeatures: "AI функции",
@@ -37,8 +37,8 @@ const resources = {
                 },
 
                 items: {
-                    currency: "Валюта",
-                    balanceCurrency: "Валюта баланса",
+                    currency: "Закреплённая валюта",
+                    balanceCurrency: "Фильтр валюты",
                     language: "Язык",
                     theme: "Тема",
                     aiInsight: "AI Insight",
@@ -168,11 +168,11 @@ const resources = {
                         description: "Вы вышли из аккаунта.",
                     },
                     currencyUpdated: {
-                        title: "Валюта обновлена",
-                        description: "Валюта установлена: {{currency}}.",
+                        title: "Закреплённая валюта обновлена",
+                        description: "Закреплённая валюта установлена: {{currency}}.",
                     },
                     balanceCurrencyUpdated: {
-                        title: "Валюта баланса обновлена",
+                        title: "Фильтр валюты обновлён",
                         description: "Баланс теперь отображается в {{currency}}.",
                         allDescription: "В балансе будут учитываться все валюты.",
                     },
@@ -283,6 +283,7 @@ const resources = {
                 account: "Счёт",
                 fromAccount: "Со счёта",
                 toAccount: "На счёт",
+                createAccount: "Создать счёт",
                 save: "Сохранить изменения",
                 add: "Добавить транзакцию",
                 expense: "Расход",
@@ -447,6 +448,34 @@ const resources = {
                 ratesFor: "Курсы для",
                 disclaimer: "Курсы примерные и приведены только для демонстрации."
             },
+
+            navigation: {
+                dashboard: "Главная",
+                accounts: "Счета",
+                transactions: "Транзакции",
+                analytics: "Аналитика",
+                settings: "Настройки"
+            },
+
+            transactionDetails: {
+                type: "Тип",
+                category: "Категория",
+                account: "Счёт",
+                toAccount: "На счёт",
+                date: "Дата",
+                description: "Описание",
+                note: "Заметка",
+                edit: "Редактировать",
+                delete: "Удалить",
+                expand: "Подробнее",
+                collapse: "Свернуть",
+                cardDetails: "Детали карты",
+                recentTransactions: "Последние транзакции",
+                inBalance: "В балансе",
+                offBalance: "Вне баланса",
+                editAccount: "Редактировать счёт",
+                deleteAccount: "Удалить счёт"
+            },
             chatbot: {
                 title: "AI помощник",
                 placeholder: "Напиши сообщение...",
@@ -530,7 +559,7 @@ const resources = {
                 logout: "Logout",
 
                 sections: {
-                    account: "Account",
+                    account: "Total Balance Settings",
                     preferences: "Preferences",
                     balanceAccounts: "Balance Accounts",
                     aiFeatures: "AI Features",
@@ -538,8 +567,8 @@ const resources = {
                 },
 
                 items: {
-                    currency: "Currency",
-                    balanceCurrency: "Balance Currency",
+                    currency: "Pinned Currency",
+                    balanceCurrency: "Currency Filter",
                     language: "Language",
                     theme: "Theme",
                     aiInsight: "AI Insight",
@@ -669,13 +698,13 @@ const resources = {
                         description: "You have logged out.",
                     },
                     currencyUpdated: {
-                        title: "Currency updated",
-                        description: "Currency set to {{currency}}.",
+                        title: "Default currency updated",
+                        description: "Default currency set to {{currency}}.",
                     },
                     balanceCurrencyUpdated: {
-                        title: "Balance currency updated",
-                        description: "Balance is now displayed in {{currency}}.",
-                        allDescription: "All currencies will be included in the balance.",
+                        title: "Currency accounted in total balance updated",
+                        description: "Total balance now accounts for {{currency}}.",
+                        allDescription: "All currencies will be included in the total balance.",
                     },
                     languageUpdated: {
                         title: "Language updated",
@@ -784,6 +813,7 @@ const resources = {
                 account: "Account",
                 fromAccount: "From account",
                 toAccount: "To account",
+                createAccount: "Create account",
                 save: "Save changes",
                 add: "Add transaction",
                 expense: "Expense",
@@ -948,6 +978,34 @@ const resources = {
                 ratesFor: "Rates for",
                 disclaimer: "Rates are approximate and shown for demonstration purposes only."
             },
+
+            navigation: {
+                dashboard: "Dashboard",
+                accounts: "Accounts",
+                transactions: "Transactions",
+                analytics: "Analytics",
+                settings: "Settings"
+            },
+
+            transactionDetails: {
+                type: "Type",
+                category: "Category",
+                account: "Account",
+                toAccount: "To Account",
+                date: "Date",
+                description: "Description",
+                note: "Note",
+                edit: "Edit",
+                delete: "Delete",
+                expand: "Expand",
+                collapse: "Collapse",
+                cardDetails: "Card Details",
+                recentTransactions: "Recent Transactions",
+                inBalance: "In Balance",
+                offBalance: "Off Balance",
+                editAccount: "Edit Account",
+                deleteAccount: "Delete Account"
+            },
             chatbot: {
                 title: "AI assistant",
                 placeholder: "Write a message...",
@@ -1031,7 +1089,7 @@ const resources = {
                 logout: "Chiqish",
 
                 sections: {
-                    account: "Hisob",
+                    account: "Umumiy balans sozlamalari",
                     preferences: "Afzalliklar",
                     balanceAccounts: "Balansdagi hisoblar",
                     aiFeatures: "AI funksiyalar",
@@ -1039,8 +1097,8 @@ const resources = {
                 },
 
                 items: {
-                    currency: "Valyuta",
-                    balanceCurrency: "Balans valyutasi",
+                    currency: "Biriktirilgan valyuta",
+                    balanceCurrency: "Valyuta filtr",
                     language: "Til",
                     theme: "Mavzu",
                     aiInsight: "AI Insight",
@@ -1170,13 +1228,13 @@ const resources = {
                         description: "Siz akkauntdan chiqdingiz.",
                     },
                     currencyUpdated: {
-                        title: "Valyuta yangilandi",
-                        description: "Valyuta {{currency}} ga o'rnatildi.",
+                        title: "Asosiy valyuta yangilandi",
+                        description: "Asosiy valyuta {{currency}} ga o'rnatildi.",
                     },
                     balanceCurrencyUpdated: {
-                        title: "Balans valyutasi yangilandi",
-                        description: "Balans endi {{currency}} da ko'rsatiladi.",
-                        allDescription: "Balansda barcha valyutalar hisobga olinadi.",
+                        title: "Umumiy balansda hisobga olinadigan valyuta yangilandi",
+                        description: "Umumiy balansda endi {{currency}} hisobga olinadi.",
+                        allDescription: "Umumiy balansda barcha valyutalar hisobga olinadi.",
                     },
                     languageUpdated: {
                         title: "Til yangilandi",
@@ -1284,6 +1342,7 @@ const resources = {
                 account: "Hisob",
                 fromAccount: "Hisobdan",
                 toAccount: "Hisobga",
+                createAccount: "Hisob yaratish",
                 save: "O'zgarishlarni saqlash",
                 add: "Tranzaksiya qo'shish",
                 expense: "Xarajat",
@@ -1447,6 +1506,34 @@ const resources = {
                 to: "Ga",
                 ratesFor: "Kurslar",
                 disclaimer: "Kurslar taxminiy bo'lib, faqat namoyish uchun berilgan."
+            },
+
+            navigation: {
+                dashboard: "Bosh sahifa",
+                accounts: "Hisoblar",
+                transactions: "Tranzaksiyalar",
+                analytics: "Analitika",
+                settings: "Sozlamalar"
+            },
+
+            transactionDetails: {
+                type: "Turi",
+                category: "Kategoriya",
+                account: "Hisob",
+                toAccount: "Hisobga",
+                date: "Sana",
+                description: "Tavsif",
+                note: "Izoh",
+                edit: "Tahrirlash",
+                delete: "O'chirish",
+                expand: "Ko'proq",
+                collapse: "Yig'ish",
+                cardDetails: "Karta tafsilotlari",
+                recentTransactions: "So'nggi tranzaksiyalar",
+                inBalance: "Balansda",
+                offBalance: "Balansda emas",
+                editAccount: "Hisobni tahrirlash",
+                deleteAccount: "Hisobni o'chirish"
             },
             chatbot: {
                 title: "AI yordamchi",

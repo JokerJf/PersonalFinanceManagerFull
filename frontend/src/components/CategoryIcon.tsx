@@ -1,7 +1,7 @@
 import {
   UtensilsCrossed, Car, ShoppingBag, Film, HeartPulse, Home,
   ShoppingCart, Briefcase, Laptop, TrendingUp, Gift,
-  ArrowLeftRight, CircleDot, type LucideIcon
+  ArrowLeftRight, CircleDot, ArrowUpRight, ArrowDownLeft, type LucideIcon
 } from "lucide-react";
 
 const iconMap: Record<string, LucideIcon> = {
@@ -17,6 +17,8 @@ const iconMap: Record<string, LucideIcon> = {
   "trending-up": TrendingUp,
   "gift": Gift,
   "arrow-left-right": ArrowLeftRight,
+  "arrow-up-right": ArrowUpRight,
+  "arrow-down-left": ArrowDownLeft,
   "circle-dot": CircleDot,
 };
 
@@ -33,6 +35,8 @@ const colorMap: Record<string, string> = {
   "trending-up": "text-emerald-400 bg-emerald-400/10",
   "gift": "text-rose-400 bg-rose-400/10",
   "arrow-left-right": "text-primary bg-primary/10",
+  "arrow-up-right": "text-rose-400 bg-rose-400/10",
+  "arrow-down-left": "text-emerald-400 bg-emerald-400/10",
   "circle-dot": "text-muted-foreground bg-secondary",
 };
 

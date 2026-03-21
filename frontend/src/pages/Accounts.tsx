@@ -101,16 +101,16 @@ const Accounts = () => {
   const otherAccounts = accounts.filter((a) => a.type !== "card");
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-4 sm:space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold">{t("accounts.title")}</h1>
+        <h1 className="text-xl sm:text-lg font-bold">{t("accounts.title")}</h1>
 
         {!isLoadingData && (
           <button
             onClick={() => setShowAddModal(true)}
-            className="w-9 h-9 rounded-full bg-primary flex items-center justify-center text-primary-foreground"
+            className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-primary flex items-center justify-center text-primary-foreground"
           >
-            <Plus size={18} />
+            <Plus size={16} sm:size={18} />
           </button>
         )}
       </div>
@@ -118,15 +118,15 @@ const Accounts = () => {
       {/* Cards */}
       {isLoadingData ? (
         <div>
-          <Skeleton className="h-6 w-20 mb-3" />
-          <div className="flex gap-3 overflow-x-auto pb-6 -mx-4 px-4">
-            <Skeleton className="h-48 w-[calc(100vw-2rem)] max-w-[400px] rounded-3xl flex-shrink-0" />
+          <Skeleton className="h-5 sm:h-6 w-16 sm:w-20 mb-2 sm:mb-3" />
+          <div className="flex gap-2 sm:gap-3 overflow-x-auto pb-4 sm:pb-6 -mx-4 px-4">
+            <Skeleton className="h-40 sm:h-48 w-[calc(100vw-2rem)] max-w-[400px] rounded-2xl sm:rounded-3xl flex-shrink-0" />
           </div>
         </div>
       ) : cards.length > 0 ? (
         <div>
-          <h2 className="section-title mb-3">{t("accounts.cardsSection")}</h2>
-          <div className="flex gap-3 overflow-x-auto pb-6 -mx-4 px-4 scrollbar-hide snap-x snap-mandatory">
+          <h2 className="section-title mb-2 sm:mb-3">{t("accounts.cardsSection")}</h2>
+          <div className="flex gap-2 sm:gap-3 overflow-x-auto pb-4 sm:pb-6 -mx-4 px-4 scrollbar-hide snap-x snap-mandatory">
             {cards.map((acc) => (
               <div
                 key={acc.id}
@@ -149,16 +149,16 @@ const Accounts = () => {
       {/* Other Accounts */}
       {isLoadingData ? (
         <div>
-          <Skeleton className="h-6 w-36 mb-3" />
-          <div className="space-y-3">
-            <Skeleton className="h-20 w-full rounded-2xl" />
-            <Skeleton className="h-20 w-full rounded-2xl" />
+          <Skeleton className="h-5 sm:h-6 w-28 sm:w-36 mb-2 sm:mb-3" />
+          <div className="space-y-2 sm:space-y-3">
+            <Skeleton className="h-16 sm:h-20 w-full rounded-xl sm:rounded-2xl" />
+            <Skeleton className="h-16 sm:h-20 w-full rounded-xl sm:rounded-2xl" />
           </div>
         </div>
       ) : otherAccounts.length > 0 ? (
         <div>
-          <h2 className="section-title mb-3">{t("accounts.otherAccountsSection")}</h2>
-          <div className="space-y-3">
+          <h2 className="section-title mb-2 sm:mb-3">{t("accounts.otherAccountsSection")}</h2>
+          <div className="space-y-2 sm:space-y-3">
             {otherAccounts.map((acc) => {
               const Icon = iconMap[acc.type];
 
@@ -166,24 +166,24 @@ const Accounts = () => {
                 <div
                   key={acc.id}
                   onClick={() => handleCardClick(acc)}
-                  className="rounded-2xl border border-border/30 flex items-center gap-3 py-3 cursor-pointer active:scale-[0.98] transition-transform px-4 dark:bg-[rgba(28,32,44,0.3)] bg-white shadow-sm"
+                  className="rounded-xl sm:rounded-2xl border border-border/30 flex items-center gap-2 sm:gap-3 py-2.5 sm:py-3 cursor-pointer active:scale-[0.98] transition-transform px-3 sm:px-4 dark:bg-[rgba(28,32,44,0.3)] bg-white shadow-sm"
                 >
-                  <div className="w-12 h-12 rounded-2xl card-bg flex items-center justify-center text-slate-900 dark:text-white">
-                    <Icon size={22} />
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl card-bg flex items-center justify-center text-slate-900 dark:text-white">
+                    <Icon size={18} sm:size={22} />
                   </div>
 
-                  <div className="flex-1">
-                    <p className="font-semibold text-sm">{acc.name}</p>
-                    <p className="text-xs text-muted-foreground capitalize">
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-xs sm:text-sm truncate">{acc.name}</p>
+                    <p className="text-[10px] sm:text-xs text-muted-foreground capitalize">
                       {getAccountTypeLabel(acc.type)} · {acc.currency}
                     </p>
                   </div>
 
-                  <div className="text-right">
-                    <p className="font-bold text-sm">{formatMoney(acc)}</p>
+                  <div className="text-right shrink-0">
+                    <p className="font-bold text-xs sm:text-sm">{formatMoney(acc)}</p>
                   </div>
 
-                  <ChevronRight size={16} className="text-muted-foreground" />
+                  <ChevronRight size={14} sm:size={16} className="text-muted-foreground shrink-0" />
                 </div>
               );
             })}
@@ -195,10 +195,10 @@ const Accounts = () => {
       {!isLoadingData && (
         <button
           onClick={() => setShowAddModal(true)}
-          className="w-full fintech-card border-2 border-dashed border-border flex items-center justify-center gap-2 py-6 text-muted-foreground hover:text-foreground hover:border-primary/50 transition-colors"
+          className="w-full fintech-card border-2 border-dashed border-border flex items-center justify-center gap-2 py-4 sm:py-6 text-muted-foreground hover:text-foreground hover:border-primary/50 transition-colors"
         >
-          <Plus size={20} />
-          <span className="text-sm font-medium">{t("accounts.addNewAccount")}</span>
+          <Plus size={18} sm:size={20} />
+          <span className="text-xs sm:text-sm font-medium">{t("accounts.addNewAccount")}</span>
         </button>
       )}
 

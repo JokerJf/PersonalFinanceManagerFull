@@ -426,8 +426,8 @@ const Analytics = () => {
   };
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      <h1 className="text-xl font-bold">{t("analytics.title")}</h1>
+    <div className="space-y-4 sm:space-y-6 animate-fade-in">
+      <h1 className="text-xl sm:text-lg font-bold">{t("analytics.title")}</h1>
 
       {/* Account Filter - Dropdown with real accounts (no "all" option) */}
       <div>
@@ -438,7 +438,7 @@ const Analytics = () => {
           value={selectedAccountId} 
           onValueChange={(value) => setSelectedAccountId(value)}
         >
-          <SelectTrigger className="w-full rounded-2xl input-bg text-slate-900 dark:text-white px-4 py-3 text-sm focus:ring-2 focus:ring-primary outline-none shadow-sm">
+          <SelectTrigger className="w-full rounded-2xl input-bg text-slate-900 dark:text-white px-3 sm:px-4 py-2.5 sm:py-3 text-sm focus:ring-2 focus:ring-primary outline-none shadow-sm">
             <SelectValue placeholder={t("analytics.selectAccount")} />
           </SelectTrigger>
           <SelectContent>
@@ -452,12 +452,12 @@ const Analytics = () => {
       </div>
 
       {/* Period Filter */}
-      <div className="flex rounded-2xl p-1 gap-1">
+      <div className="flex rounded-2xl p-0.5 sm:p-1 gap-0.5 sm:gap-1">
         {(["day", "week", "month", "year"] as Period[]).map((p) => (
           <button
             key={p}
             onClick={() => setPeriod(p)}
-            className={`flex-1 py-2.5 rounded-xl text-xs font-semibold capitalize transition-all shadow-sm ${
+            className={`flex-1 py-2 sm:py-2.5 rounded-lg sm:rounded-xl text-[10px] sm:text-xs font-semibold capitalize transition-all shadow-sm ${
               period === p ? "tab-active" : "tab-inactive bg-secondary/50"
             }`}
           >
@@ -467,51 +467,51 @@ const Analytics = () => {
       </div>
 
       {/* Summary Cards - like in Budget page */}
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-2 gap-2 sm:gap-3">
         {/* Факт дохода */}
-        <div className="rounded-3xl border border-border/30 p-4 card-container">
-          <p className="text-xs text-muted-foreground mb-1">{t("analytics.income")}</p>
-          <p className="text-lg font-bold text-success">{formatMoney(totalIncome)}</p>
-          <p className="text-xs text-muted-foreground mt-1">
+        <div className="rounded-2xl sm:rounded-3xl border border-border/30 p-3 sm:p-4 card-container">
+          <p className="text-[10px] sm:text-xs text-muted-foreground mb-0.5 sm:mb-1">{t("analytics.income")}</p>
+          <p className="text-base sm:text-lg font-bold text-success">{formatMoney(totalIncome)}</p>
+          <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5 sm:mt-1">
             {incomeCount} {incomeCount === 1 ? t("analytics.transaction") : t("analytics.transactions")}
           </p>
         </div>
 
         {/* Факт расходов */}
-        <div className="rounded-3xl border border-border/30 p-4 card-container">
-          <p className="text-xs text-muted-foreground mb-1">{t("analytics.expense")}</p>
-          <p className="text-lg font-bold text-destructive">{formatMoney(totalExpenses)}</p>
-          <p className="text-xs text-muted-foreground mt-1">
+        <div className="rounded-2xl sm:rounded-3xl border border-border/30 p-3 sm:p-4 card-container">
+          <p className="text-[10px] sm:text-xs text-muted-foreground mb-0.5 sm:mb-1">{t("analytics.expense")}</p>
+          <p className="text-base sm:text-lg font-bold text-destructive">{formatMoney(totalExpenses)}</p>
+          <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5 sm:mt-1">
             {expenseCount} {expenseCount === 1 ? t("analytics.transaction") : t("analytics.transactions")}
           </p>
         </div>
 
         {/* Фактический итог */}
-        <div className="col-span-2 rounded-3xl border border-border/30 p-4 card-container">
-          <p className="text-xs text-muted-foreground mb-1">{t("analytics.balance")}</p>
-          <p className={`text-xl font-bold ${netBalance >= 0 ? "text-success" : "text-destructive"}`}>
+        <div className="col-span-2 rounded-2xl sm:rounded-3xl border border-border/30 p-3 sm:p-4 card-container">
+          <p className="text-[10px] sm:text-xs text-muted-foreground mb-0.5 sm:mb-1">{t("analytics.balance")}</p>
+          <p className={`text-lg sm:text-xl font-bold ${netBalance >= 0 ? "text-success" : "text-destructive"}`}>
             {formatMoney(netBalance)}
           </p>
         </div>
       </div>
 
       {/* Expenses by Category */}
-      <div className="rounded-3xl border border-border/30 p-5 card-container">
-        <h3 className="section-title mb-4">{t("analytics.byCategory")}</h3>
+      <div className="rounded-2xl sm:rounded-3xl border border-border/30 p-3 sm:p-5 card-container">
+        <h3 className="section-title mb-3 sm:mb-4">{t("analytics.byCategory")}</h3>
 
         {pieData.length === 0 ? (
           <p className="text-sm text-muted-foreground">{t("analytics.noData")}</p>
         ) : (
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 sm:gap-4">
             <div className="relative">
-              <ResponsiveContainer width={140} height={140}>
+              <ResponsiveContainer width={110} height={110}>
                 <PieChart>
                   <Pie
                     data={pieData}
                     cx="50%"
                     cy="50%"
-                    innerRadius={42}
-                    outerRadius={62}
+                    innerRadius={32}
+                    outerRadius={48}
                     dataKey="value"
                     strokeWidth={2}
                     stroke="hsl(var(--card))"
@@ -538,31 +538,31 @@ const Analytics = () => {
               {/* Center label */}
               {topCategory && totalCategoryAmount > 0 && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center">
-                  <p className="text-lg font-bold">
+                  <p className="text-sm sm:text-lg font-bold">
                     {isNaN(topCategory.value) || isNaN(totalCategoryAmount) || totalCategoryAmount === 0 
                       ? "0" 
                       : `${Math.round((topCategory.value / totalCategoryAmount) * 100)}%`}
                   </p>
-                  <p className="text-[9px] text-muted-foreground font-medium text-center px-2">
+                  <p className="text-[8px] sm:text-[9px] text-muted-foreground font-medium text-center px-1 sm:px-2">
                     {topCategory.label}
                   </p>
                 </div>
               )}
             </div>
 
-            <div className="flex-1 space-y-2.5">
+            <div className="flex-1 space-y-1.5 sm:space-y-2.5 min-w-0">
               {pieData.map((d) => (
-                <div key={d.name} className="flex items-center justify-between text-xs">
-                  <div className="flex items-center gap-2">
+                <div key={d.name} className="flex items-center justify-between text-[10px] sm:text-xs">
+                  <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
                     <div
-                      className="w-2.5 h-2.5 rounded-full"
+                      className="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full shrink-0"
                       style={{ background: d.color }}
                     />
-                    <span className="text-muted-foreground font-medium">{d.label}</span>
+                    <span className="text-muted-foreground font-medium truncate">{d.label}</span>
                   </div>
-                  <span className="font-semibold">
+                  <span className="font-semibold shrink-0">
                     {formatMoney(d.value)}{" "}
-                    <span className="text-muted-foreground font-normal">
+                    <span className="text-muted-foreground font-normal hidden xs:inline">
                       ({isNaN(d.value) || isNaN(totalCategoryAmount) || totalCategoryAmount === 0 
                         ? "0" 
                         : `${Math.round((d.value / totalCategoryAmount) * 100)}%`})
@@ -576,10 +576,10 @@ const Analytics = () => {
       </div>
 
       {/* Income vs Expenses */}
-      <div className="rounded-3xl border border-border/30 p-5 card-container">
-        <h3 className="section-title mb-4">{t("analytics.incomeVsExpense")}</h3>
+      <div className="rounded-2xl sm:rounded-3xl border border-border/30 p-3 sm:p-5 card-container">
+        <h3 className="section-title mb-3 sm:mb-4">{t("analytics.incomeVsExpense")}</h3>
 
-        <ResponsiveContainer width="100%" height={180}>
+        <ResponsiveContainer width="100%" height={150} sm:height={180}>
           <BarChart data={barData} barGap={4}>
             <CartesianGrid
               strokeDasharray="3 3"
@@ -613,24 +613,24 @@ const Analytics = () => {
           </BarChart>
         </ResponsiveContainer>
 
-        <div className="flex justify-center gap-6 mt-3">
-          <div className="flex items-center gap-1.5 text-xs font-medium">
-            <div className="w-2.5 h-2.5 rounded-full bg-success" />
+        <div className="flex justify-center gap-4 sm:gap-6 mt-2 sm:mt-3">
+          <div className="flex items-center gap-1 text-[10px] sm:text-xs font-medium">
+            <div className="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full bg-success" />
             {t("analytics.income")}
           </div>
-          <div className="flex items-center gap-1.5 text-xs font-medium">
-            <div className="w-2.5 h-2.5 rounded-full bg-destructive" />
+          <div className="flex items-center gap-1 text-[10px] sm:text-xs font-medium">
+            <div className="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full bg-destructive" />
             {t("analytics.expense")}
           </div>
         </div>
       </div>
 
       {/* Balance Trend */}
-      <div className="rounded-3xl border border-border/30 p-5 card-container">
-        <h3 className="section-title mb-4">{t("analytics.balanceTrend")}</h3>
+      <div className="rounded-2xl sm:rounded-3xl border border-border/30 p-3 sm:p-5 card-container">
+        <h3 className="section-title mb-3 sm:mb-4">{t("analytics.balanceTrend")}</h3>
 
-        <ResponsiveContainer width="100%" height={200} className="balance-trend-chart">
-          <LineChart data={lineData} className="balance-trend-chart">
+        <ResponsiveContainer width="100%" height={140} sm:height={200}>
+          <LineChart data={lineData} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
             <CartesianGrid
               strokeDasharray="3 3"
               vertical={false}
@@ -639,13 +639,15 @@ const Analytics = () => {
             />
             <XAxis
               dataKey="label"
-              tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
+              tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
               axisLine={false}
               tickLine={false}
+              interval="preserveStartEnd"
+              minTickGap={30}
             />
             <YAxis
-              tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
-              width={45}
+              tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
+              width={40}
               axisLine={false}
               tickLine={false}
             />
@@ -659,11 +661,12 @@ const Analytics = () => {
               }}
             />
             <Line
-              type="natural"
+              type="monotone"
               dataKey="balance"
               stroke="hsl(225, 73%, 57%)"
-              strokeWidth={2.5}
-              dot={{ fill: "hsl(225, 73%, 57%)", r: 3, strokeWidth: 0 }}
+              strokeWidth={2}
+              dot={false}
+              activeDot={{ fill: "hsl(225, 73%, 57%)", r: 4, strokeWidth: 0 }}
               isAnimationActive={false}
             />
           </LineChart>

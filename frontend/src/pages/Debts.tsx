@@ -787,21 +787,21 @@ const Debts = () => {
                           </button>
                         </div>
 
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1.5 sm:gap-2">
                           <button
                             onClick={() => updatePaidInstallments(credit.id, -1)}
-                            className="flex items-center justify-center gap-1 px-3 py-2 rounded-xl secondary-bg text-sm"
+                            className="flex items-center justify-center gap-1 px-2 sm:px-3 py-1.5 sm:py-2 rounded-xl secondary-bg text-[10px] sm:text-sm whitespace-nowrap"
                           >
-                            <Minus size={14} />
-                            {t("debts.removePayment")}
+                            <Minus size={12} sm:size={14} />
+                            <span className="hidden xs:inline">{t("debts.removePayment")}</span>
                           </button>
 
                           <button
                             onClick={() => updatePaidInstallments(credit.id, 1)}
-                            className="flex items-center justify-center gap-1 px-3 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-semibold"
+                            className="flex items-center justify-center gap-1 px-2 sm:px-3 py-1.5 sm:py-2 rounded-xl bg-primary text-primary-foreground text-[10px] sm:text-sm font-semibold whitespace-nowrap"
                           >
-                            <Check size={14} />
-                            {t("debts.markPayment")}
+                            <Check size={12} sm:size={14} />
+                            <span className="hidden xs:inline">{t("debts.markPayment")}</span>
                           </button>
                         </div>
                       </div>
@@ -1015,9 +1015,9 @@ const Debts = () => {
             </div>
 
             {/* Дата начала (слева) и Срок в месяцах (справа) в одной строке */}
-            <div className="grid grid-cols-10 gap-2">
+            <div className="grid grid-cols-10 gap-1.5 sm:gap-2">
               <div className="col-span-7">
-                <label className="text-xs font-medium text-muted-foreground mb-1 block">
+                <label className="text-[10px] sm:text-xs font-medium text-muted-foreground mb-1 block">
                   {t("debts.startDate")}
                 </label>
                 <DateTimePicker
@@ -1026,7 +1026,7 @@ const Debts = () => {
                 />
               </div>
               <div className="col-span-3">
-                <label className="text-xs font-medium text-muted-foreground mb-1 block">
+                <label className="text-[10px] sm:text-xs font-medium text-muted-foreground mb-1 block">
                   {t("debts.months")}
                 </label>
                 <input
@@ -1035,7 +1035,7 @@ const Debts = () => {
                   value={creditMonths}
                   onChange={(e) => setCreditMonths(e.target.value)}
                   placeholder="5"
-                  className="w-full rounded-xl bg-secondary dark:bg-[rgba(28,32,44,0.3)] border-0 px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary outline-none h-[42px]"
+                  className="w-full rounded-xl bg-secondary dark:bg-[rgba(28,32,44,0.3)] border-0 px-2 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm focus:ring-2 focus:ring-primary outline-none h-[38px] sm:h-[42px]"
                 />
               </div>
             </div>
@@ -1232,9 +1232,9 @@ const Debts = () => {
             </div>
 
             {/* Дата начала (слева) и Срок в месяцах (справа) в одной строке */}
-            <div className="grid grid-cols-10 gap-2">
+            <div className="grid grid-cols-10 gap-1.5 sm:gap-2">
               <div className="col-span-7">
-                <label className="text-xs font-medium text-muted-foreground mb-1 block">
+                <label className="text-[10px] sm:text-xs font-medium text-muted-foreground mb-1 block">
                   {t("debts.startDate")}
                 </label>
                 <DateTimePicker
@@ -1243,7 +1243,7 @@ const Debts = () => {
                 />
               </div>
               <div className="col-span-3">
-                <label className="text-xs font-medium text-muted-foreground mb-1 block">
+                <label className="text-[10px] sm:text-xs font-medium text-muted-foreground mb-1 block">
                   {t("debts.months")}
                 </label>
                 <input
@@ -1252,7 +1252,7 @@ const Debts = () => {
                   value={editCreditMonths}
                   onChange={(e) => setEditCreditMonths(e.target.value)}
                   placeholder="5"
-                  className="w-full rounded-xl bg-secondary dark:bg-[rgba(28,32,44,0.3)] border-0 px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary outline-none h-[42px]"
+                  className="w-full rounded-xl bg-secondary dark:bg-[rgba(28,32,44,0.3)] border-0 px-2 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm focus:ring-2 focus:ring-primary outline-none h-[38px] sm:h-[42px]"
                 />
               </div>
             </div>

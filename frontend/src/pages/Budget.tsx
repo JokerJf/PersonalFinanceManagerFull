@@ -156,32 +156,60 @@ const Budget = () => {
     return accounts.find((a) => a.id === selectedAccountId) || accounts[0] || null;
   }, [accounts, selectedAccountId]);
 
-  // Фактический доход: INCOME (пополнения) + TRANSFER (переводы НА выбранный счёт)
+  // Фактический доход: только транзакции где выбранный счёт - ПОЛУЧАТЕЛЬ (accountId)
   const actualIncome = useMemo(() => {
-    let income = monthTransactions
-      .filter((tx) => tx.type === "income")
-      .reduce((sum, tx) => sum + Number(tx.amount) || 0, 0);
+    let income = 0;
     
-    // Добавляем переводы на выбранный аккаунт
+    // Обычные пополнения - только если это счёт получатель (accountId === selectedAccountId)
+    const regularIncome = monthTransactions
+      .filter((tx) => tx.type === "income" && tx.accountId === selectedAccountId && tx.category !== "Transfer")
+      .reduce((sum, tx) => sum + Number(tx.amount) || 0, 0);
+    income += regularIncome;
+    
+    // Переводы на выбранный аккаунт (старый формат - type: transfer)
     const transfersIn = monthTransactions
       .filter((tx) => tx.type === "transfer" && tx.toAccountId === selectedAccountId)
       .reduce((sum, tx) => sum + Number(tx.toAmount || tx.amount) || 0, 0);
     income += transfersIn;
     
+    // Входящие переводы (новый формат от бэкенда - type: income с category: Transfer)
+    const incomingTransfers = monthTransactions
+      .filter((tx) => 
+        tx.type === "income" && 
+        tx.category === "Transfer" && 
+        tx.accountId === selectedAccountId
+      )
+      .reduce((sum, tx) => sum + Number(tx.amount) || 0, 0);
+    income += incomingTransfers;
+    
     return income;
   }, [monthTransactions, selectedAccountId]);
 
-  // Фактический расход: EXPENSE (траты) + TRANSFER (переводы С выбранного счёта)
+  // Фактический расход: только транзакции где выбранный счёт - ОТПРАВИТЕЛЬ (accountId)
   const actualExpenses = useMemo(() => {
-    let expenses = monthTransactions
-      .filter((tx) => tx.type === "expense")
-      .reduce((sum, tx) => sum + Number(tx.amount) || 0, 0);
+    let expenses = 0;
     
-    // Добавляем переводы с выбранного аккаунта
+    // Обычные траты - только если это счёт отправитель (accountId === selectedAccountId)
+    const regularExpenses = monthTransactions
+      .filter((tx) => tx.type === "expense" && tx.accountId === selectedAccountId && tx.category !== "Transfer")
+      .reduce((sum, tx) => sum + Number(tx.amount) || 0, 0);
+    expenses += regularExpenses;
+    
+    // Переводы с выбранного аккаунта (старый формат - type: transfer)
     const transfersOut = monthTransactions
       .filter((tx) => tx.type === "transfer" && tx.accountId === selectedAccountId)
       .reduce((sum, tx) => sum + Number(tx.amount) || 0, 0);
     expenses += transfersOut;
+    
+    // Исходящие переводы (новый формат от бэкенда - type: expense с category: Transfer)
+    const outgoingTransfers = monthTransactions
+      .filter((tx) => 
+        tx.type === "expense" && 
+        tx.category === "Transfer" && 
+        tx.accountId === selectedAccountId
+      )
+      .reduce((sum, tx) => sum + Number(tx.amount) || 0, 0);
+    expenses += outgoingTransfers;
     
     return expenses;
   }, [monthTransactions, selectedAccountId]);
@@ -344,57 +372,57 @@ const Budget = () => {
   const actualNet = actualIncome - actualExpenses;
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      <div className="flex items-center gap-3">
+    <div className="space-y-4 sm:space-y-6 animate-fade-in">
+      <div className="flex items-center gap-2 sm:gap-3">
         <button
           onClick={() => navigate(-1)}
-          className="w-9 h-9 rounded-full secondary-bg flex items-center justify-center"
+          className="w-8 h-8 sm:w-9 sm:h-9 rounded-full secondary-bg flex items-center justify-center"
         >
-          <ArrowLeft size={18} />
+          <ArrowLeft size={16} sm:size={18} />
         </button>
         <div>
-          <h1 className="text-xl font-bold">{t("budget.title")}</h1>
-          <p className="text-xs text-muted-foreground">
+          <h1 className="text-lg sm:text-xl font-bold">{t("budget.title")}</h1>
+          <p className="text-[10px] sm:text-xs text-muted-foreground">
             {t("budget.subtitle")}
           </p>
         </div>
       </div>
 
       {/* Month switcher */}
-      <div className="rounded-3xl border border-border/30 p-4 card-container shadow-sm">
+      <div className="rounded-2xl sm:rounded-3xl border border-border/30 p-3 sm:p-4 card-container shadow-sm">
         <div className="flex items-center justify-between">
           <button
             onClick={goPrevMonth}
-            className="w-10 h-10 rounded-2xl secondary-bg flex items-center justify-center"
+            className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl secondary-bg flex items-center justify-center"
           >
-            <ChevronLeft size={18} />
+            <ChevronLeft size={16} sm:size={18} />
           </button>
 
           <div className="text-center">
-            <p className="text-xs text-muted-foreground uppercase tracking-wider">
+            <p className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wider">
               {t("budget.period")}
             </p>
-            <p className="text-lg font-bold capitalize">
+            <p className="text-base sm:text-lg font-bold capitalize">
               {formatMonthLabel(selectedMonth, language)}
             </p>
           </div>
 
           <button
             onClick={goNextMonth}
-            className="w-10 h-10 rounded-2xl secondary-bg flex items-center justify-center"
+            className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl secondary-bg flex items-center justify-center"
           >
-            <ChevronRight size={18} />
+            <ChevronRight size={16} sm:size={18} />
           </button>
         </div>
 
         {/* Account selector */}
-        <div className="mt-4 pt-4 border-t border-border/30">
-          <p className="text-xs text-muted-foreground mb-2">{t("budget.accountCard")}</p>
+        <div className="mt-3 sm:mt-4 pt-3 sm:pt-4 border-t border-border/30">
+          <p className="text-[10px] sm:text-xs text-muted-foreground mb-1.5 sm:mb-2">{t("budget.accountCard")}</p>
           <Select
             value={selectedAccountId}
             onValueChange={(value) => setSelectedAccountId(value)}
           >
-            <SelectTrigger className="w-full rounded-xl bg-secondary dark:bg-[rgba(28,32,44,0.3)] border-0 px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary outline-none">
+            <SelectTrigger className="w-full rounded-xl bg-secondary dark:bg-[rgba(28,32,44,0.3)] border-0 px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm focus:ring-2 focus:ring-primary outline-none">
               <SelectValue placeholder={t("budget.selectAccount")} />
             </SelectTrigger>
             <SelectContent>
@@ -414,67 +442,67 @@ const Budget = () => {
       </div>
 
       {/* Overview */}
-      <div className="grid grid-cols-2 gap-3">
-        <div className="rounded-3xl border border-border/30 p-4 card-container shadow-sm">
-          <p className="text-xs text-muted-foreground mb-1">{t("budget.incomePlan")}</p>
-          <p className="text-lg font-bold text-success">
+      <div className="grid grid-cols-2 gap-2 sm:gap-3">
+        <div className="rounded-2xl sm:rounded-3xl border border-border/30 p-3 sm:p-4 card-container shadow-sm">
+          <p className="text-[10px] sm:text-xs text-muted-foreground mb-0.5 sm:mb-1">{t("budget.incomePlan")}</p>
+          <p className="text-base sm:text-lg font-bold text-success">
             {formatMoney(totalPlannedIncome, selectedAccount?.currency || selectedCurrency || "USD")}
           </p>
         </div>
 
-        <div className="rounded-3xl border border-border/30 p-4 card-container shadow-sm">
-          <p className="text-xs text-muted-foreground mb-1">{t("budget.incomeFact")}</p>
-          <p className="text-lg font-bold text-success">
+        <div className="rounded-2xl sm:rounded-3xl border border-border/30 p-3 sm:p-4 card-container shadow-sm">
+          <p className="text-[10px] sm:text-xs text-muted-foreground mb-0.5 sm:mb-1">{t("budget.incomeFact")}</p>
+          <p className="text-base sm:text-lg font-bold text-success">
             {formatMoney(actualIncome, selectedAccount?.currency || selectedCurrency || "USD")}
           </p>
         </div>
 
-        <div className="rounded-3xl border border-border/30 p-4 card-container shadow-sm">
-          <p className="text-xs text-muted-foreground mb-1">{t("budget.expenseLimit")}</p>
-          <p className="text-lg font-bold text-warning">
+        <div className="rounded-2xl sm:rounded-3xl border border-border/30 p-3 sm:p-4 card-container shadow-sm">
+          <p className="text-[10px] sm:text-xs text-muted-foreground mb-0.5 sm:mb-1">{t("budget.expenseLimit")}</p>
+          <p className="text-base sm:text-lg font-bold text-warning">
             {formatMoney(totalExpenseLimit, selectedAccount?.currency || selectedCurrency || "USD")}
           </p>
         </div>
 
-        <div className="rounded-3xl border border-border/30 p-4 card-container shadow-sm">
-          <p className="text-xs text-muted-foreground mb-1">{t("budget.expenseFact")}</p>
-          <p className="text-lg font-bold text-destructive">
+        <div className="rounded-2xl sm:rounded-3xl border border-border/30 p-3 sm:p-4 card-container shadow-sm">
+          <p className="text-[10px] sm:text-xs text-muted-foreground mb-0.5 sm:mb-1">{t("budget.expenseFact")}</p>
+          <p className="text-base sm:text-lg font-bold text-destructive">
             {formatMoney(actualExpenses, selectedAccount?.currency || selectedCurrency || "USD")}
           </p>
         </div>
 
-        <div className="rounded-3xl border border-border/30 p-4 card-container shadow-sm">
-          <p className="text-xs text-muted-foreground mb-1">{t("budget.plannedRemainder")}</p>
-          <p className="text-lg font-bold">
+        <div className="rounded-2xl sm:rounded-3xl border border-border/30 p-3 sm:p-4 card-container shadow-sm">
+          <p className="text-[10px] sm:text-xs text-muted-foreground mb-0.5 sm:mb-1">{t("budget.plannedRemainder")}</p>
+          <p className="text-base sm:text-lg font-bold">
             {formatMoney(projectedSavings, selectedAccount?.currency || selectedCurrency || "USD")}
           </p>
         </div>
 
-        <div className="rounded-3xl border border-border/30 p-4 card-container shadow-sm">
-          <p className="text-xs text-muted-foreground mb-1">{t("budget.actualResult")}</p>
-          <p className={`text-lg font-bold ${actualNet >= 0 ? "text-success" : "text-destructive"}`}>
+        <div className="rounded-2xl sm:rounded-3xl border border-border/30 p-3 sm:p-4 card-container shadow-sm">
+          <p className="text-[10px] sm:text-xs text-muted-foreground mb-0.5 sm:mb-1">{t("budget.actualResult")}</p>
+          <p className={`text-base sm:text-lg font-bold ${actualNet >= 0 ? "text-success" : "text-destructive"}`}>
             {formatMoney(actualNet, selectedAccount?.currency || selectedCurrency || "USD")}
           </p>
         </div>
       </div>
 
       {/* Budget setup */}
-      <div className="rounded-3xl border border-border/30 p-4 card-container shadow-sm">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <Calculator size={18} className="text-primary" />
+      <div className="rounded-2xl sm:rounded-3xl border border-border/30 p-3 sm:p-4 card-container shadow-sm">
+        <div className="flex items-center justify-between mb-2 sm:mb-3">
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            <Calculator size={16} sm:size={18} className="text-primary" />
             <h2 className="section-title">{t("budget.budgetParameters")}</h2>
           </div>
 
           <button
             onClick={() => setShowPlanDialog(true)}
-            className="w-9 h-9 rounded-full bg-primary flex items-center justify-center text-primary-foreground"
+            className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-primary flex items-center justify-center text-primary-foreground"
           >
-            <Pencil size={16} />
+            <Pencil size={14} sm:size={16} />
           </button>
         </div>
 
-        <div className="space-y-2 text-sm">
+        <div className="space-y-1.5 sm:space-y-2 text-xs sm:text-sm">
           <div className="flex items-center justify-between">
             <span className="text-muted-foreground">{t("budget.planIncome")}</span>
             <span className="font-semibold">{formatMoney(totalPlannedIncome, selectedAccount?.currency || selectedCurrency || "USD")}</span>
@@ -487,33 +515,33 @@ const Budget = () => {
       </div>
 
       {/* Income plan */}
-      <div className="rounded-3xl border border-border/30 p-4 card-container shadow-sm">
-        <div className="flex items-center justify-between mb-3">
+      <div className="rounded-2xl sm:rounded-3xl border border-border/30 p-3 sm:p-4 card-container shadow-sm">
+        <div className="flex items-center justify-between mb-2 sm:mb-3">
           <h2 className="section-title">{t("budget.incomePlanByCategory")}</h2>
           <button
             onClick={() => setShowIncomeDialog(true)}
-            className="w-9 h-9 rounded-full bg-primary flex items-center justify-center text-primary-foreground"
+            className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-primary flex items-center justify-center text-primary-foreground"
           >
-            <Plus size={16} />
+            <Plus size={14} sm:size={16} />
           </button>
         </div>
 
-        <div className="space-y-2">
+        <div className="space-y-1.5 sm:space-y-2">
           {incomeRows.map((row) => (
             <div
               key={row.category}
-              className="rounded-2xl border border-border/30 px-4 py-3 flex items-center justify-between"
+              className="rounded-xl sm:rounded-2xl border border-border/30 px-3 sm:px-4 py-2.5 sm:py-3 flex items-center justify-between gap-2"
             >
-              <div>
-                <p className="text-sm font-medium">{row.category}</p>
-                <p className="text-xs text-muted-foreground">
+              <div className="min-w-0 flex-1">
+                <p className="text-xs sm:text-sm font-medium truncate">{row.category}</p>
+                <p className="text-[10px] sm:text-xs text-muted-foreground truncate">
                   {t("budget.limit")}: {formatMoney(row.planned, selectedAccount?.currency || selectedCurrency || "USD")} · {t("budget.fact")}:{" "}
                   {formatMoney(row.actual, selectedAccount?.currency || selectedCurrency || "USD")}
                 </p>
               </div>
 
               <p
-                className={`text-sm font-semibold ${
+                className={`text-xs sm:text-sm font-semibold shrink-0 ${
                   row.diff >= 0 ? "text-success" : "text-destructive"
                 }`}
               >
@@ -526,33 +554,33 @@ const Budget = () => {
       </div>
 
       {/* Expense limits */}
-      <div className="rounded-3xl border border-border/30 p-4 card-container shadow-sm">
-        <div className="flex items-center justify-between mb-3">
+      <div className="rounded-2xl sm:rounded-3xl border border-border/30 p-3 sm:p-4 card-container shadow-sm">
+        <div className="flex items-center justify-between mb-2 sm:mb-3">
           <h2 className="section-title">{t("budget.expenseLimits")}</h2>
           <button
             onClick={() => setShowLimitDialog(true)}
-            className="w-9 h-9 rounded-full bg-primary flex items-center justify-center text-primary-foreground"
+            className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-primary flex items-center justify-center text-primary-foreground"
           >
-            <Plus size={16} />
+            <Plus size={14} sm:size={16} />
           </button>
         </div>
 
-        <div className="space-y-3">
+        <div className="space-y-2 sm:space-y-3">
           {expenseRows.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground text-sm">
+            <div className="text-center py-6 sm:py-8 text-muted-foreground text-xs sm:text-sm">
               Лимиты пока не заданы
             </div>
           ) : (
             expenseRows.map((row) => (
-              <div key={row.category} className="rounded-2xl border border-border/30 p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex-1">
-                    <div className="flex items-center justify-between">
-                      <p className="text-sm font-medium">{row.category}</p>
+              <div key={row.category} className="rounded-xl sm:rounded-2xl border border-border/30 p-3 sm:p-4">
+                <div className="flex items-center justify-between mb-1.5 sm:mb-2">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-xs sm:text-sm font-medium truncate">{row.category}</p>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <button className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center">
-                            <MoreVertical size={14} />
+                          <button className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-secondary flex items-center justify-center shrink-0">
+                            <MoreVertical size={12} sm:size={14} />
                           </button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
@@ -570,23 +598,23 @@ const Budget = () => {
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </div>
-                    <p className="text-xs text-muted-foreground mt-1">
+                    <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5 sm:mt-1">
                       Лимит: {formatMoney(row.limit, selectedAccount?.currency || selectedCurrency || "USD")}
                     </p>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-[10px] sm:text-xs text-muted-foreground">
                       Факт: {formatMoney(row.actual, selectedAccount?.currency || selectedCurrency || "USD")}
                     </p>
                   </div>
                 </div>
 
-                <div className="w-full h-2 rounded-full bg-secondary overflow-hidden">
+                <div className="w-full h-1.5 sm:h-2 rounded-full bg-secondary overflow-hidden">
                   <div
                     className={`h-full transition-all ${getStatusColor(row.progress)}`}
                     style={{ width: `${Math.min(row.progress, 100)}%` }}
                   />
                 </div>
 
-                <p className="text-[10px] text-muted-foreground mt-1">
+                <p className="text-[9px] sm:text-[10px] text-muted-foreground mt-1">
                   Использовано {row.limit > 0 ? Math.round(row.progress) : 0}%
                 </p>
               </div>

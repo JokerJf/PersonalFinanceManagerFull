@@ -36,10 +36,6 @@ const Login = () => {
         const loginData: LoginRequest = { email, password };
         const response = await authApi.login(loginData);
         
-        // Сохраняем токен и данные пользователя
-        authApi.setToken(response.data.token);
-        authApi.setUser(response.data.user);
-        
         // Перенаправляем на главную страницу
         window.location.href = '/';
       } else {
@@ -52,10 +48,6 @@ const Login = () => {
 
         const registerData: RegisterRequest = { email, password, firstName, lastName };
         const response = await authApi.register(registerData);
-        
-        // Сохраняем токен и данные пользователя
-        authApi.setToken(response.data.token);
-        authApi.setUser(response.data.user);
         
         // Перенаправляем на главную страницу
         window.location.href = '/';

@@ -14,13 +14,27 @@ import { DateTimePicker } from "@/components/ui/date-time-picker";
 type TxType = "expense" | "income" | "transfer";
 type DetailTab = "date" | "description" | "note";
 
-const categories = {
-  expense: ["Food & Dining", "Transport", "Shopping", "Entertainment", "Health", "Housing", "Other"],
-  income: ["Salary", "Freelance", "Investment", "Gift", "Other"],
+// Категории на английском (для внутреннего использования)
+const categoriesKeys = {
+  expense: ["foodDining", "transport", "shopping", "entertainment", "health", "housing", "other"],
+  income: ["salary", "freelance", "investment", "gift", "other"],
 };
 
-// Map categories to icons
+// Map categories to icons (using new keys)
 const categoryIcons: Record<string, string> = {
+  "foodDining": "utensils-crossed",
+  "transport": "car",
+  "shopping": "shopping-bag",
+  "entertainment": "film",
+  "health": "heart-pulse",
+  "housing": "home",
+  "salary": "briefcase",
+  "freelance": "laptop",
+  "investment": "trending-up",
+  "gift": "gift",
+  "transfer": "arrow-left-right",
+  "other": "circle-dot",
+  // Legacy English names for backward compatibility
   "Food & Dining": "utensils-crossed",
   "Transport": "car",
   "Shopping": "shopping-bag",
@@ -72,6 +86,7 @@ function AddTransactionModal({
     addTransaction,
     updateTransaction,
     workspace,
+    setAddAccountModalOpen,
   } = useApp();
 
   const [txType, setTxType] = useState<TxType>(defaultType || editTransaction?.type || "expense");
@@ -156,29 +171,23 @@ function AddTransactionModal({
     }
   }, [editTransaction, accounts]);
 
-  // Устанавливаем счёт "To" при изменении счёта "From" для переводов
+  // Устанавливаем toAccountId при первом рендере если есть 2+ счёта и тип transfer
+
+  // Устанавливаем toAccountId при изменении accounts или типа транзакции
   useEffect(() => {
-    if (txType === "transfer" && fromAccountId && accounts.length > 1) {
-      // Находим счёт, который не равен fromAccountId
-      const otherAccount = accounts.find(a => a.id !== fromAccountId);
-      if (otherAccount && (!toAccountId || toAccountId === fromAccountId)) {
-        setToAccountId(String(otherAccount.id));
+    if (txType === "transfer" && accounts.length >= 2) {
+      // Если toAccountId ещё не установлен или равен fromAccountId - устанавливаем другой счёт
+      if (!toAccountId || toAccountId === fromAccountId) {
+        const otherAccount = accounts.find(a => a.id !== fromAccountId);
+        if (otherAccount) {
+          setToAccountId(String(otherAccount.id));
+        } else if (accounts[1]) {
+          // Если fromAccountId ещё не выбран, устанавливаем второй счёт по умолчанию
+          setToAccountId(String(accounts[1].id));
+        }
       }
     }
   }, [txType, fromAccountId, accounts, toAccountId]);
-
-  // Проверка при переводе - если только 1 счёт
-  useEffect(() => {
-    if (txType === "transfer" && accounts.length < 2) {
-      // Показываем уведомление, но не сразу при монтировании
-      if (amount || toAccountId) {
-        toast({
-          title: t("transactionForm.toasts.error.needTwoAccounts"),
-          description: t("dashboard.toasts.needTwoAccounts"),
-        });
-      }
-    }
-  }, [txType, accounts.length, amount, toAccountId, t]);
 
   if (modalOpen === false) {
     return null;
@@ -204,22 +213,27 @@ function AddTransactionModal({
   };
 
   const getCategoryLabel = (categoryKey: string) => {
-    const map: Record<string, string> = {
-      "Food & Dining": t("transactionForm.categories.foodDining"),
-      "Transport": t("transactionForm.categories.transport"),
-      "Shopping": t("transactionForm.categories.shopping"),
-      "Entertainment": t("transactionForm.categories.entertainment"),
-      "Health": t("transactionForm.categories.health"),
-      "Housing": t("transactionForm.categories.housing"),
-      "Salary": t("transactionForm.categories.salary"),
-      "Freelance": t("transactionForm.categories.freelance"),
-      "Investment": t("transactionForm.categories.investment"),
-      "Gift": t("transactionForm.categories.gift"),
-      "Transfer": t("transactionForm.categories.transfer"),
-      "Other": t("transactionForm.categories.other"),
+    // Если это ключ (foodDining) - переводим
+    if (categoryKey === categoryKey.toLowerCase()) {
+      return t(`transactionForm.categories.${categoryKey}`);
+    }
+    // Если это английское название (Food & Dining) - маппим на ключ
+    const keyMap: Record<string, string> = {
+      "Food & Dining": "foodDining",
+      "Transport": "transport",
+      "Shopping": "shopping",
+      "Entertainment": "entertainment",
+      "Health": "health",
+      "Housing": "housing",
+      "Salary": "salary",
+      "Freelance": "freelance",
+      "Investment": "investment",
+      "Gift": "gift",
+      "Transfer": "transfer",
+      "Other": "other",
     };
-
-    return map[categoryKey] || categoryKey;
+    const key = keyMap[categoryKey] || categoryKey;
+    return t(`transactionForm.categories.${key}`);
   };
 
   const convertedAmount =
@@ -267,22 +281,6 @@ function AddTransactionModal({
 
     setErrors({});
 
-    if (txType === "transfer" && accounts.length < 2) {
-      toast({
-        title: t("transactionForm.toasts.error.needTwoAccounts"),
-        description: t("dashboard.toasts.needTwoAccounts"),
-      });
-      return;
-    }
-
-    if (txType === "transfer" && accounts.length < 2) {
-      // Валидация уже прошла выше
-    }
-
-    if (!amount || (!category && txType !== "transfer")) {
-      // Валидация уже прошла выше
-    }
-
     const amountNum = parseFloat(amount);
     let finalToAmount: number | undefined = undefined;
 
@@ -305,7 +303,7 @@ function AddTransactionModal({
         amount: amountNum,
         currency: fromAccount?.currency || "USD",
         category: txType === "transfer" ? "Transfer" : category,
-        description: description || (txType === "transfer" ? `To ${toAccount?.name || ""}` : ""),
+        description: description || "",
         accountId: fromAccountId,
         accountName: fromAccount?.name || "",
         ...(txType === "transfer"
@@ -368,7 +366,7 @@ function AddTransactionModal({
       amount: amountNum,
       currency: fromAccount?.currency || "USD",
       category: txType === "transfer" ? "Transfer" : category,
-      description: description || (txType === "transfer" ? `To ${toAccount?.name || ""}` : ""),
+      description: description || "",
       accountId: fromAccountId,
       accountName: fromAccount?.name || "",
       ...(txType === "transfer"
@@ -413,12 +411,23 @@ function AddTransactionModal({
     // Сохраняем транзакцию через API
     try {
       const newTx = await addTransaction(tx);
-      // Используем данные с сервера, но преобразуем тип обратно в нижний регистр
-      const savedTx = {
-        ...newTx,
-        type: (newTx.type as string).toLowerCase() as Transaction["type"]
-      };
-      setTransactions([savedTx, ...transactions]);
+      
+      // Обрабатываем массив транзакций (для переводов) или одиночную транзакцию
+      if (Array.isArray(newTx)) {
+        // Для переводов - добавляем обе транзакции
+        const txsToAdd = newTx.map(tx => ({
+          ...tx,
+          type: (tx.type as string).toLowerCase() as Transaction["type"]
+        }));
+        setTransactions([...txsToAdd, ...transactions]);
+      } else {
+        // Для обычных транзакций
+        const savedTx = {
+          ...newTx,
+          type: (newTx.type as string).toLowerCase() as Transaction["type"]
+        };
+        setTransactions([savedTx, ...transactions]);
+      }
 
       toast({
         title: t("transactionForm.toasts.created.title"),
@@ -454,15 +463,15 @@ function AddTransactionModal({
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <div className="space-y-3 sm:space-y-4">
           {/* Transaction Type */}
-          <div className="flex rounded-2xl p-1 gap-1">
+          <div className="flex rounded-xl sm:rounded-2xl p-0.5 sm:p-1 gap-0.5 sm:gap-1">
             {(["expense", "income", "transfer"] as TxType[]).map((tType) => (
               <button
                 key={tType}
                 type="button"
                 onClick={() => setTxType(tType)}
-                className={`flex-1 py-2.5 rounded-xl text-xs font-semibold capitalize transition-colors shadow-sm ${
+                className={`flex-1 py-2 rounded-lg sm:py-2.5 sm:rounded-xl text-[10px] sm:text-xs font-semibold capitalize transition-colors shadow-sm ${
                   txType === tType ? "tab-active" : "tab-inactive"
                 }`}
               >
@@ -486,14 +495,14 @@ function AddTransactionModal({
                 if (errors.amount) setErrors({ ...errors, amount: undefined });
               }}
               placeholder={t("transactionForm.placeholders.amount")}
-              className={`w-full rounded-2xl input-bg text-slate-900 dark:text-white px-4 py-3 text-sm focus:ring-2 focus:ring-primary outline-none shadow-sm ${errors.amount ? "border-red-500 border-2" : ""}`}
+              className={`w-full rounded-xl sm:rounded-2xl input-bg text-slate-900 dark:text-white px-3 sm:px-4 py-2.5 sm:py-3 text-xs sm:text-sm focus:ring-2 focus:ring-primary outline-none shadow-sm ${errors.amount ? "border-red-500 border-2" : ""}`}
             />
-            {errors.amount && <p className="text-red-500 text-xs mt-1">{errors.amount}</p>}
+            {errors.amount && <p className="text-red-500 text-[10px] sm:text-xs mt-0.5 sm:mt-1">{errors.amount}</p>}
           </div>
 
           {/* Category + Account Row for expense/income */}
           {txType !== "transfer" && (
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-2 sm:gap-3">
               {/* Category */}
               <div>
                 <label className="text-xs font-medium text-slate-700 dark:text-white/70 mb-1 block">
@@ -506,20 +515,20 @@ function AddTransactionModal({
                       setCategory(e.target.value);
                       if (errors.category) setErrors({ ...errors, category: undefined });
                     }}
-                    className={`w-full btn-secondary text-slate-900 dark:text-white rounded-2xl py-2.5 px-3 text-sm appearance-none pr-8 ${errors.category ? "border-red-500 border-2" : ""}`}
+                    className={`w-full btn-secondary text-slate-900 dark:text-white rounded-xl sm:rounded-2xl py-2 px-3 sm:py-2.5 sm:px-3 text-xs sm:text-sm appearance-none pr-7 sm:pr-8 ${errors.category ? "border-red-500 border-2" : ""}`}
                   >
                     <option value="">{t("transactionForm.placeholders.selectCategory")}</option>
-                    {categories[txType].map((c) => (
+                    {categoriesKeys[txType].map((c) => (
                       <option key={c} value={c}>
-                        {getCategoryLabel(c)}
+                        {t(`transactionForm.categories.${c}`)}
                       </option>
                     ))}
                   </select>
-                  {errors.category && <p className="text-red-500 text-xs mt-1">{errors.category}</p>}
-                  <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                  {errors.category && <p className="text-red-500 text-[10px] sm:text-xs mt-0.5 sm:mt-1">{errors.category}</p>}
+                  <div className="absolute right-2.5 sm:right-3 top-1/2 -translate-y-1/2 pointer-events-none">
                     <svg
-                      width="12"
-                      height="12"
+                      width="10" sm:width={12}
+                      height="10" sm:height={12}
                       viewBox="0 0 24 24"
                       fill="none"
                       stroke="currentColor"
@@ -544,7 +553,7 @@ function AddTransactionModal({
                       setFromAccountId(e.target.value);
                       if (errors.fromAccount) setErrors({ ...errors, fromAccount: undefined });
                     }}
-                    className={`w-full btn-secondary text-slate-900 dark:text-white rounded-2xl py-2.5 px-3 text-sm appearance-none pr-8 ${errors.fromAccount ? "border-red-500 border-2" : ""}`}
+                    className={`w-full btn-secondary text-slate-900 dark:text-white rounded-xl sm:rounded-2xl py-2 px-3 sm:py-2.5 sm:px-3 text-xs sm:text-sm appearance-none pr-7 sm:pr-8 ${errors.fromAccount ? "border-red-500 border-2" : ""}`}
                   >
                     {accounts.map((a) => (
                       <option key={a.id} value={a.id}>
@@ -552,11 +561,11 @@ function AddTransactionModal({
                       </option>
                     ))}
                   </select>
-                  {errors.fromAccount && <p className="text-red-500 text-xs mt-1">{errors.fromAccount}</p>}
-                  <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                  {errors.fromAccount && <p className="text-red-500 text-[10px] sm:text-xs mt-0.5 sm:mt-1">{errors.fromAccount}</p>}
+                  <div className="absolute right-2.5 sm:right-3 top-1/2 -translate-y-1/2 pointer-events-none">
                     <svg
-                      width="12"
-                      height="12"
+                      width="10" sm:width={12}
+                      height="10" sm:height={12}
                       viewBox="0 0 24 24"
                       fill="none"
                       stroke="currentColor"
@@ -573,9 +582,9 @@ function AddTransactionModal({
 
           {/* Transfer Section */}
           {txType === "transfer" && (
-            <div className="space-y-3">
+            <div className="space-y-2 sm:space-y-3">
               {/* From Account + To Account Row */}
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-2 sm:gap-3">
                 {/* From Account */}
                 <div>
                   <label className="text-xs font-medium text-slate-700 dark:text-white/70 mb-1 block">
@@ -588,7 +597,7 @@ function AddTransactionModal({
                         setFromAccountId(e.target.value);
                         if (errors.fromAccount) setErrors({ ...errors, fromAccount: undefined });
                       }}
-                      className={`w-full btn-secondary text-slate-900 dark:text-white rounded-2xl py-2.5 px-3 text-sm appearance-none pr-8 ${errors.fromAccount ? "border-red-500 border-2" : ""}`}
+                      className={`w-full btn-secondary text-slate-900 dark:text-white rounded-xl sm:rounded-2xl py-2 px-3 sm:py-2.5 sm:px-3 text-xs sm:text-sm appearance-none pr-7 sm:pr-8 ${errors.fromAccount ? "border-red-500 border-2" : ""}`}
                     >
                       {accounts.map((a) => (
                         <option key={a.id} value={a.id}>
@@ -596,11 +605,11 @@ function AddTransactionModal({
                         </option>
                       ))}
                     </select>
-                    {errors.fromAccount && <p className="text-red-500 text-xs mt-1">{errors.fromAccount}</p>}
-                    <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                    {errors.fromAccount && <p className="text-red-500 text-[10px] sm:text-xs mt-0.5 sm:mt-1">{errors.fromAccount}</p>}
+                    <div className="absolute right-2.5 sm:right-3 top-1/2 -translate-y-1/2 pointer-events-none">
                       <svg
-                        width="12"
-                        height="12"
+                        width="10" sm:width={12}
+                        height="10" sm:height={12}
                         viewBox="0 0 24 24"
                         fill="none"
                         stroke="currentColor"
@@ -618,38 +627,58 @@ function AddTransactionModal({
                   <label className="text-xs font-medium text-slate-700 dark:text-white/70 mb-1 block">
                     {t("transactionForm.toAccount")}
                   </label>
-                  <div className="relative">
-                    <select
-                      value={toAccountId}
-                      onChange={(e) => {
-                        setToAccountId(e.target.value);
-                        if (errors.toAccount) setErrors({ ...errors, toAccount: undefined });
-                      }}
-                      className={`w-full btn-secondary text-slate-900 dark:text-white rounded-2xl py-2.5 px-3 text-sm appearance-none pr-8 ${errors.toAccount ? "border-red-500 border-2" : ""}`}
+                  {accounts.length < 2 ? (
+                    <button
+                      onClick={() => setAddAccountModalOpen(true)}
+                      className="w-full btn-secondary text-slate-900 dark:text-white rounded-xl sm:rounded-2xl py-2 px-3 sm:py-2.5 sm:px-3 text-xs sm:text-sm flex items-center justify-center gap-1.5 sm:gap-2"
                     >
-                      {accounts
-                        .filter((a) => a.id !== fromAccountId)
-                        .map((a) => (
-                          <option key={a.id} value={a.id}>
-                            {a.name}
-                          </option>
-                        ))}
-                    </select>
-                    {errors.toAccount && <p className="text-red-500 text-xs mt-1">{errors.toAccount}</p>}
-                    <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
                       <svg
-                        width="12"
-                        height="12"
+                        width="12" sm:width={16}
+                        height="12" sm:height={16}
                         viewBox="0 0 24 24"
                         fill="none"
                         stroke="currentColor"
-                        className="text-slate-900 dark:text-white"
                         strokeWidth="2"
                       >
-                        <polyline points="6 9 12 15 18 9"></polyline>
+                        <line x1="12" y1="5" x2="12" y2="19"></line>
+                        <line x1="5" y1="12" x2="19" y2="12"></line>
                       </svg>
+                      {t("transactionForm.createAccount")}
+                    </button>
+                  ) : (
+                    <div className="relative">
+                      <select
+                        value={toAccountId}
+                        onChange={(e) => {
+                          setToAccountId(e.target.value);
+                          if (errors.toAccount) setErrors({ ...errors, toAccount: undefined });
+                        }}
+                        className={`w-full btn-secondary text-slate-900 dark:text-white rounded-xl sm:rounded-2xl py-2 px-3 sm:py-2.5 sm:px-3 text-xs sm:text-sm appearance-none pr-7 sm:pr-8 ${errors.toAccount ? "border-red-500 border-2" : ""}`}
+                      >
+                        {accounts
+                          .filter((a) => a.id !== fromAccountId)
+                          .map((a) => (
+                            <option key={a.id} value={a.id}>
+                              {a.name}
+                            </option>
+                          ))}
+                      </select>
+                      {errors.toAccount && <p className="text-red-500 text-[10px] sm:text-xs mt-0.5 sm:mt-1">{errors.toAccount}</p>}
+                      <div className="absolute right-2.5 sm:right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                        <svg
+                          width="10" sm:width={12}
+                          height="10" sm:height={12}
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          className="text-slate-900 dark:text-white"
+                          strokeWidth="2"
+                        >
+                          <polyline points="6 9 12 15 18 9"></polyline>
+                        </svg>
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
               </div>
 
@@ -668,10 +697,10 @@ function AddTransactionModal({
                         ? convertedAmount.toLocaleString("en-US", { minimumFractionDigits: 2 })
                         : t("transactionForm.placeholders.amount")
                     }
-                    className="w-full rounded-2xl input-bg text-slate-900 dark:text-white px-4 py-3 text-sm focus:ring-2 focus:ring-primary outline-none shadow-sm"
+                    className="w-full rounded-xl sm:rounded-2xl input-bg text-slate-900 dark:text-white px-3 sm:px-4 py-2.5 sm:py-3 text-xs sm:text-sm focus:ring-2 focus:ring-primary outline-none shadow-sm"
                   />
                   {fromAccount.currency !== toAccount.currency && (
-                    <p className="text-[10px] text-slate-500 dark:text-white/50 mt-1">
+                    <p className="text-[9px] sm:text-[10px] text-slate-500 dark:text-white/50 mt-0.5 sm:mt-1">
                       {t("transactionForm.rateLabel")}: 1 {fromAccount.currency} ={" "}
                       {formatRate(getExchangeRate(fromAccount.currency, toAccount.currency))}{" "}
                       {toAccount.currency}
@@ -684,11 +713,11 @@ function AddTransactionModal({
 
           {/* Detail Tabs: Date & Time, Description, Note */}
           <div>
-            <div className="flex rounded-2xl p-1 gap-1">
+            <div className="flex rounded-xl sm:rounded-2xl p-0.5 sm:p-1 gap-0.5 sm:gap-1">
               <button
                 type="button"
                 onClick={() => setActiveDetailTab("date")}
-                className={`flex-1 py-2.5 rounded-xl text-xs font-medium transition-colors shadow-sm ${
+                className={`flex-1 py-2 rounded-lg sm:py-2.5 sm:rounded-xl text-[10px] sm:text-xs font-medium transition-colors shadow-sm ${
                   activeDetailTab === "date" ? "tab-active" : "tab-inactive"
                 }`}
               >
@@ -697,7 +726,7 @@ function AddTransactionModal({
               <button
                 type="button"
                 onClick={() => setActiveDetailTab("description")}
-                className={`flex-1 py-2.5 rounded-xl text-xs font-medium transition-colors shadow-sm ${
+                className={`flex-1 py-2 rounded-lg sm:py-2.5 sm:rounded-xl text-[10px] sm:text-xs font-medium transition-colors shadow-sm ${
                   activeDetailTab === "description" ? "tab-active" : "tab-inactive"
                 }`}
               >
@@ -706,7 +735,7 @@ function AddTransactionModal({
               <button
                 type="button"
                 onClick={() => setActiveDetailTab("note")}
-                className={`flex-1 py-2.5 rounded-xl text-xs font-medium transition-colors shadow-sm ${
+                className={`flex-1 py-2 rounded-lg sm:py-2.5 sm:rounded-xl text-[10px] sm:text-xs font-medium transition-colors shadow-sm ${
                   activeDetailTab === "note" ? "tab-active" : "tab-inactive"
                 }`}
               >
@@ -715,7 +744,7 @@ function AddTransactionModal({
             </div>
 
             {/* Tab Content */}
-            <div className="mt-3">
+            <div className="mt-2 sm:mt-3">
               {activeDetailTab === "date" && (
                 <DateTimePicker value={date} onChange={setDate} />
               )}
@@ -726,7 +755,7 @@ function AddTransactionModal({
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   placeholder={t("transactionForm.placeholders.description")}
-                  className="w-full rounded-2xl input-bg text-slate-900 dark:text-white px-4 py-3 text-sm focus:ring-2 focus:ring-primary outline-none shadow-sm"
+                  className="w-full rounded-xl sm:rounded-2xl input-bg text-slate-900 dark:text-white px-3 sm:px-4 py-2.5 sm:py-3 text-xs sm:text-sm focus:ring-2 focus:ring-primary outline-none shadow-sm"
                 />
               )}
 
@@ -736,7 +765,7 @@ function AddTransactionModal({
                   value={note}
                   onChange={(e) => setNote(e.target.value)}
                   placeholder={t("transactionForm.placeholders.note")}
-                  className="w-full rounded-2xl input-bg text-slate-900 dark:text-white px-4 py-3 text-sm focus:ring-2 focus:ring-primary outline-none shadow-sm"
+                  className="w-full rounded-xl sm:rounded-2xl input-bg text-slate-900 dark:text-white px-3 sm:px-4 py-2.5 sm:py-3 text-xs sm:text-sm focus:ring-2 focus:ring-primary outline-none shadow-sm"
                 />
               )}
             </div>
@@ -745,7 +774,8 @@ function AddTransactionModal({
           {/* Submit Button */}
           <button
             onClick={handleSubmit}
-            className="w-full py-3 rounded-2xl bg-primary text-white font-semibold text-sm shadow-md"
+            disabled={txType === "transfer" && accounts.length < 2}
+            className={`w-full py-2.5 sm:py-3 rounded-xl sm:rounded-2xl bg-primary text-white font-semibold text-xs sm:text-sm shadow-md ${txType === "transfer" && accounts.length < 2 ? "opacity-50 cursor-not-allowed" : ""}`}
           >
             {isEditMode ? t("transactionForm.save") : t("transactionForm.add")}
           </button>

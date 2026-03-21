@@ -139,14 +139,69 @@ router.post('/', async (req: AuthRequest, res, next) => {
     } else if (normalizedType === 'EXPENSE') {
       account.balance = Number(account.balance) - Number(amount);
     } else if (normalizedType === 'TRANSFER' && numericToAccountId) {
+      // При переводе создаём ДВЕ транзакции:
+      // 1. Исходящая (EXPENSE) - "Переведено на [счёт]"
+      // 2. Входящая (INCOME) - "Получено от [счёт]"
+      
+      // Обновляем баланс исходящего счёта
       account.balance = Number(account.balance) - Number(amount);
+      
+      // Находим целевой счёт
       const toAccountConditions = familyGroupId
         ? { id: numericToAccountId, familyGroupId }
         : { id: numericToAccountId, userId: req.userId, familyGroupId: IsNull() };
       const toAccount = await accountRepository().findOne({ where: toAccountConditions });
+      
       if (toAccount) {
+        // Обновляем баланс целевого счёта
         toAccount.balance = Number(toAccount.balance) + Number(toAmount || amount);
         await accountRepository().save(toAccount);
+        
+        // Создаём исходящую транзакцию (EXPENSE)
+        const transferOutTransaction = transactionRepository().create({
+          amount: amount,
+          description: description || '',
+          date: new Date(date),
+          type: TransactionType.EXPENSE,
+          category: 'Transfer',
+          currency,
+          accountId: numericAccountId,
+          accountName,
+          toAccountId: numericToAccountId,
+          toAccountName: toAccountName || toAccount.name,
+          toCurrency,
+          toAmount: toAmount || amount,
+          icon: icon || 'ArrowUpRight',
+          note,
+          userId: req.userId!,
+          familyGroupId,
+        });
+        
+        // Создаём входящую транзакцию (INCOME)
+        const transferInTransaction = transactionRepository().create({
+          amount: toAmount || amount,
+          description: description || '',
+          date: new Date(date),
+          type: TransactionType.INCOME,
+          category: 'Transfer',
+          currency: toCurrency || currency,
+          accountId: numericToAccountId,
+          accountName: toAccountName || toAccount.name,
+          toAccountId: numericAccountId,
+          toAccountName: accountName,
+          toCurrency: currency,
+          toAmount: amount,
+          icon: icon || 'ArrowDownLeft',
+          note,
+          userId: req.userId!,
+          familyGroupId,
+        });
+        
+        await accountRepository().save(account);
+        await transactionRepository().save([transferOutTransaction, transferInTransaction]);
+        
+        res.status(201).json({ success: true, data: [transferOutTransaction, transferInTransaction] });
+        return;
       }
     }
 

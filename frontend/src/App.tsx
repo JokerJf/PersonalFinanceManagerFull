@@ -18,8 +18,12 @@ import ChatBot from "./pages/ChatBot";
 import NotFound from "./pages/NotFound";
 import Budget from "./pages/Budget";
 import Login from "./pages/Login";
+import { validateAndCleanTokens } from "./api/auth";
 
 const queryClient = new QueryClient();
+
+// Проверка и очистка токенов при запуске
+validateAndCleanTokens().catch(() => {});
 
 const App = () => (
   <QueryClientProvider client={queryClient}>

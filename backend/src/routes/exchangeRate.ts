@@ -5,6 +5,7 @@ import { authenticate, AuthRequest } from '../middleware/auth';
 
 const router = Router();
 
+// Публичные endpoints - не требуют аутентификации
 router.get('/', async (req: AuthRequest, res, next) => {
   try {
     const exchangeRateRepository = AppDataSource.getRepository(ExchangeRate);
@@ -36,7 +37,24 @@ router.get('/currencies', async (req: AuthRequest, res, next) => {
   }
 });
 
-router.post('/', authenticate, async (req: AuthRequest, res, next) => {
+router.get('/convert', async (req: AuthRequest, res, next) => {
+  try {
+    const { from, to, amount } = req.query;
+    const exchangeRateRepository = AppDataSource.getRepository(ExchangeRate);
+    const rate = await exchangeRateRepository.findOne({ where: { fromCurrency: from as string, toCurrency: to as string } });
+
+    if (!rate) return res.status(404).json({ success: false, message: 'Exchange rate not found' });
+    const convertedAmount = Number(amount) * Number(rate.rate);
+    res.json({ success: true, data: { convertedAmount } });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Защищённые endpoints - требуют аутентификации
+router.use(authenticate);
+
+router.post('/', async (req: AuthRequest, res, next) => {
   try {
     const { fromCurrency, toCurrency, rate } = req.body;
     const exchangeRateRepository = AppDataSource.getRepository(ExchangeRate);

@@ -219,7 +219,7 @@ interface AppContextType {
   updateAccount: (account: Account) => Promise<void>;
 
   addAccount: (account: Omit<Account, "id">) => Promise<Account>;
-  addTransaction: (transaction: Omit<Transaction, "id">) => Promise<Transaction>;
+  addTransaction: (transaction: Omit<Transaction, "id">) => Promise<Transaction | Transaction[]>;
 
   budgetPlans: BudgetPlan[];
   setBudgetPlans: (plans: BudgetPlan[]) => void;
@@ -975,10 +975,16 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         setFamilyAccs(updatedAccounts);
       }
 
-      if (workspace === "personal") setPersonalTxs((prev) => [...prev, newTransaction]);
-      else setFamilyTxs((prev) => [...prev, newTransaction]);
-
-      return newTransaction;
+      // Обрабатываем массив транзакций (для переводов) или одиночную транзакцию
+      if (Array.isArray(newTransaction)) {
+        if (workspace === "personal") setPersonalTxs((prev) => [...prev, ...newTransaction]);
+        else setFamilyTxs((prev) => [...prev, ...newTransaction]);
+        return newTransaction;
+      } else {
+        if (workspace === "personal") setPersonalTxs((prev) => [...prev, newTransaction]);
+        else setFamilyTxs((prev) => [...prev, newTransaction]);
+        return newTransaction;
+      }
     } catch (error) {
       console.error("Error creating transaction:", error);
 
@@ -1049,8 +1055,19 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     setIsLoadingExchangeRates(true);
 
     try {
+      // Загружаем курсы валют
       const rates = await api.exchangeRates.getExchangeRates();
       setExchangeRates(rates);
+      
+      // Загружаем доступные валюты с сервера
+      try {
+        const currencies = await api.exchangeRates.getAvailableCurrencies();
+        if (currencies && currencies.length > 0) {
+          setAvailableCurrencies(currencies);
+        }
+      } catch (currenciesError) {
+        console.log('Не удалось загрузить доступные валюты');
+      }
     } catch (error) {
       console.error("Error refreshing exchange rates:", error);
     } finally {

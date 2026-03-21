@@ -155,14 +155,14 @@ const AddAccountModal = ({ open, onOpenChange, onAdd }: AddAccountModalProps) =>
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="fixed left-[50%] top-[50%] z-50 grid w-full translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] rounded-2xl sm:rounded-lg sm:mx-4 mx-0 sm:max-w-sm max-w-[calc(100vw-1rem)] modal-bg">
+      <DialogContent className="fixed left-[50%] top-[50%] z-50 grid w-full translate-x-[-50%] translate-y-[-50%] gap-3 sm:gap-4 border bg-background p-4 sm:p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] rounded-xl sm:rounded-2xl sm:mx-4 mx-0 sm:max-w-sm max-w-[calc(100vw-1rem)] modal-bg">
         <DialogHeader>
           <DialogTitle className="text-slate-900 dark:text-white">
             {t("accountForm.title")}
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-3">
+        <div className="space-y-2 sm:space-y-3">
           {/* Account Name */}
           <div>
             <label className="text-xs font-medium text-slate-700 dark:text-white/70 mb-1 block">
@@ -175,22 +175,22 @@ const AddAccountModal = ({ open, onOpenChange, onAdd }: AddAccountModalProps) =>
                 if (errors.name) setErrors({ ...errors, name: undefined });
               }}
               placeholder={t("accountForm.placeholders.accountName")}
-              className={`w-full rounded-2xl input-bg text-slate-900 dark:text-white px-4 py-3 text-sm focus:ring-2 focus:ring-primary outline-none shadow-sm ${errors.name ? "border-red-500 border-2" : ""}`}
+              className={`w-full rounded-xl sm:rounded-2xl input-bg text-slate-900 dark:text-white px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm focus:ring-2 focus:ring-primary outline-none shadow-sm ${errors.name ? "border-red-500 border-2" : ""}`}
             />
-            {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name}</p>}
+            {errors.name && <p className="text-red-500 text-[10px] sm:text-xs mt-0.5 sm:mt-1">{errors.name}</p>}
           </div>
 
           {/* Type */}
           <div>
-            <label className="text-xs font-medium text-slate-700 mb-1 block">
+            <label className="text-xs font-medium text-slate-700 dark:text-white/70 mb-1 block">
               {t("accountForm.type")}
             </label>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
               {(["card", "cash", "bank"] as const).map((type) => (
                 <button
                   key={type}
                   onClick={() => setNewType(type)}
-                  className={`py-2 rounded-2xl text-xs font-semibold capitalize transition-colors shadow-sm ${newType === type ? "bg-primary text-white" : "btn-secondary"
+                  className={`py-1.5 sm:py-2 rounded-xl sm:rounded-2xl text-[10px] sm:text-xs font-semibold capitalize transition-colors shadow-sm ${newType === type ? "bg-primary text-white" : "btn-secondary"
                     }`}
                 >
                   {getTypeLabel(type)}
@@ -201,9 +201,9 @@ const AddAccountModal = ({ open, onOpenChange, onAdd }: AddAccountModalProps) =>
 
           {/* Card Number and Expiry Date - in one row (75% / 25%) */}
           {newType === "card" && (
-            <div className="grid grid-cols-4 gap-3">
+            <div className="grid grid-cols-4 gap-2 sm:gap-3">
               <div className="col-span-3">
-                <label className="text-xs font-medium text-slate-700 mb-1 block">
+                <label className="text-xs font-medium text-slate-700 dark:text-white/70 mb-1 block">
                   {t("accountForm.cardNumber")}
                 </label>
                 <input
@@ -218,12 +218,12 @@ const AddAccountModal = ({ open, onOpenChange, onAdd }: AddAccountModalProps) =>
                   placeholder={t("accountForm.placeholders.cardNumber")}
                   maxLength={19}
                   inputMode="numeric"
-                  className={`w-full rounded-2xl input-bg text-slate-900 dark:text-white px-4 py-3 text-sm focus:ring-2 focus:ring-primary outline-none shadow-sm ${errors.cardNumber ? "border-red-500 border-2" : ""}`}
+                  className={`w-full rounded-xl sm:rounded-2xl input-bg text-slate-900 dark:text-white px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm focus:ring-2 focus:ring-primary outline-none shadow-sm ${errors.cardNumber ? "border-red-500 border-2" : ""}`}
                 />
-                {errors.cardNumber && <p className="text-red-500 text-xs mt-1">{errors.cardNumber}</p>}
+                {errors.cardNumber && <p className="text-red-500 text-[10px] sm:text-xs mt-0.5 sm:mt-1">{errors.cardNumber}</p>}
               </div>
               <div className="col-span-1">
-                <label className="text-xs font-medium text-slate-700 mb-1 block">
+                <label className="text-xs font-medium text-slate-700 dark:text-white/70 mb-1 block">
                   Срок
                 </label>
                 <input
@@ -236,9 +236,9 @@ const AddAccountModal = ({ open, onOpenChange, onAdd }: AddAccountModalProps) =>
                   placeholder={t("accountForm.placeholders.expiryDate")}
                   maxLength={5}
                   inputMode="numeric"
-                  className={`w-full rounded-2xl input-bg text-slate-900 dark:text-white px-4 py-3 text-sm focus:ring-2 focus:ring-primary outline-none shadow-sm ${errors.expiryDate ? "border-red-500 border-2" : ""}`}
+                  className={`w-full rounded-xl sm:rounded-2xl input-bg text-slate-900 dark:text-white px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm focus:ring-2 focus:ring-primary outline-none shadow-sm ${errors.expiryDate ? "border-red-500 border-2" : ""}`}
                 />
-                {errors.expiryDate && <p className="text-red-500 text-xs mt-1">{errors.expiryDate}</p>}
+                {errors.expiryDate && <p className="text-red-500 text-[10px] sm:text-xs mt-0.5 sm:mt-1">{errors.expiryDate}</p>}
               </div>
             </div>
           )}
@@ -246,14 +246,14 @@ const AddAccountModal = ({ open, onOpenChange, onAdd }: AddAccountModalProps) =>
           {/* Card Network - dropdown */}
           {newType === "card" && (
             <div>
-              <label className="text-xs font-medium text-slate-700 mb-1 block">
+              <label className="text-xs font-medium text-slate-700 dark:text-white/70 mb-1 block">
                 {t("accountForm.cardNetwork")}
               </label>
               <Select 
                 value={newNetwork} 
                 onValueChange={(value) => handleNetworkChange(value as "visa" | "mastercard" | "humo" | "uzcard")}
               >
-                <SelectTrigger className="w-full rounded-2xl input-bg text-slate-900 dark:text-white px-4 py-3 text-sm focus:ring-2 focus:ring-primary outline-none shadow-sm">
+                <SelectTrigger className="w-full rounded-xl sm:rounded-2xl input-bg text-slate-900 dark:text-white px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm focus:ring-2 focus:ring-primary outline-none shadow-sm">
                   <SelectValue placeholder="Выберите сеть" />
                 </SelectTrigger>
                 <SelectContent>
@@ -269,14 +269,14 @@ const AddAccountModal = ({ open, onOpenChange, onAdd }: AddAccountModalProps) =>
           {/* Currency - dropdown (only for cash and bank) */}
           {newType !== "card" && (
             <div>
-              <label className="text-xs font-medium text-slate-700 mb-1 block">
+              <label className="text-xs font-medium text-slate-700 dark:text-white/70 mb-1 block">
                 {t("accountForm.currency")}
               </label>
               <Select 
                 value={newCurrency} 
                 onValueChange={(value) => setNewCurrency(value)}
               >
-                <SelectTrigger className="w-full rounded-2xl input-bg text-slate-900 dark:text-white px-4 py-3 text-sm focus:ring-2 focus:ring-primary outline-none shadow-sm">
+                <SelectTrigger className="w-full rounded-xl sm:rounded-2xl input-bg text-slate-900 dark:text-white px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm focus:ring-2 focus:ring-primary outline-none shadow-sm">
                   <SelectValue placeholder="Выберите валюту" />
                 </SelectTrigger>
                 <SelectContent>
@@ -339,9 +339,9 @@ const AddAccountModal = ({ open, onOpenChange, onAdd }: AddAccountModalProps) =>
                 if (errors.balance) setErrors({ ...errors, balance: undefined });
               }}
               placeholder={t("accountForm.placeholders.balance")}
-              className={`w-full rounded-2xl input-bg text-slate-900 dark:text-white px-4 py-3 text-sm focus:ring-2 focus:ring-primary outline-none shadow-sm ${errors.balance ? "border-red-500 border-2" : ""}`}
+              className={`w-full rounded-xl sm:rounded-2xl input-bg text-slate-900 dark:text-white px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm focus:ring-2 focus:ring-primary outline-none shadow-sm ${errors.balance ? "border-red-500 border-2" : ""}`}
             />
-            {errors.balance && <p className="text-red-500 text-xs mt-1">{errors.balance}</p>}
+            {errors.balance && <p className="text-red-500 text-[10px] sm:text-xs mt-0.5 sm:mt-1">{errors.balance}</p>}
           </div>
 
           {/* Included in Balance */}
@@ -364,7 +364,7 @@ const AddAccountModal = ({ open, onOpenChange, onAdd }: AddAccountModalProps) =>
           {/* Submit Button */}
           <button
             onClick={handleAdd}
-            className="w-full py-3 rounded-2xl bg-primary text-white font-semibold text-sm shadow-md"
+            className="w-full py-2.5 sm:py-3 rounded-xl sm:rounded-2xl bg-primary text-white font-semibold text-xs sm:text-sm shadow-md"
           >
             {t("accountForm.add")}
           </button>

@@ -531,6 +531,11 @@ const SettingsPage = () => {
           isDropdown: true,
           dropdownType: "balance" as const,
         },
+      ],
+    },
+    {
+      title: t("settings.items.language"),
+      items: [
         {
           icon: User,
           label: t("settings.items.language"),
@@ -627,7 +632,7 @@ const SettingsPage = () => {
                         }
                       >
                         <DropdownMenuTrigger asChild>
-                          <button className="w-full flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-3 hover:bg-secondary/50 transition-colors">
+                          <button className="w-full flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-3 hover:bg-secondary/50 transition-colors focus:outline-none">
                             <item.icon size={16} className="text-muted-foreground sm:[size:18px]" />
                             <span className="text-sm font-medium flex-1 text-left truncate">{item.label}</span>
                             <span className="text-xs text-muted-foreground font-medium truncate hidden xs:inline">{item.desc}</span>
@@ -848,7 +853,7 @@ const SettingsPage = () => {
                 {familyGroupStatus?.isInGroup && (
                   <DropdownMenu open={familyOpen} onOpenChange={setFamilyOpen}>
                     <DropdownMenuTrigger asChild>
-                      <button className="w-full flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-3 hover:bg-secondary/50 transition-colors">
+                      <button className="w-full flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-3 hover:bg-secondary/50 transition-colors focus:outline-none">
                         <Users size={16} className="text-muted-foreground sm:[size:18px]" />
                         <span className="text-sm font-medium flex-1 text-left truncate">
                           {familyGroupStatus.groupName}

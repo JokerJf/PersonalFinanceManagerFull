@@ -11,6 +11,7 @@ import { BudgetCategoryLimit } from '../entity/BudgetCategoryLimit';
 import { BudgetIncomePlanItem } from '../entity/BudgetIncomePlanItem';
 import { FamilyRequest } from '../entity/FamilyRequest';
 import { FamilyGroup } from '../entity/FamilyGroup';
+import { Session } from '../entity/Session';
 
 export const AppDataSource = new DataSource({
   type: 'postgres',
@@ -34,6 +35,7 @@ export const AppDataSource = new DataSource({
     BudgetIncomePlanItem,
     FamilyRequest,
     FamilyGroup,
+    Session,
   ],
   migrations: ['src/migration/*.ts'],
   subscribers: [],

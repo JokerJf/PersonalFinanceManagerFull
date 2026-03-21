@@ -5,25 +5,59 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowLeftRight, ArrowLeft } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
-const currencies = ["USD", "UZS", "EUR", "RUB", "GBP"];
-
 const ExchangeRates = () => {
   const { t } = useTranslation();
-  const { exchangeRates, isLoadingExchangeRates, refreshExchangeRates } = useApp();
+  const { exchangeRates, availableCurrencies, isLoadingExchangeRates, refreshExchangeRates } = useApp();
   const navigate = useNavigate();
 
-  const [fromCurrency, setFromCurrency] = useState("USD");
-  const [toCurrency, setToCurrency] = useState("UZS");
+  // Используем валюты из контекста, если они доступны, иначе - значения по умолчанию
+  const currencies = availableCurrencies.length > 0 ? availableCurrencies : ["USD", "UZS", "RUB"];
+  
+  const [fromCurrency, setFromCurrency] = useState(currencies[0] || "USD");
+  const [toCurrency, setToCurrency] = useState(currencies[1] || currencies[0] || "UZS");
   const [amount, setAmount] = useState("1");
+
+  // Обновляем выбранные валюты при изменении доступных валют
+  useEffect(() => {
+    if (availableCurrencies.length > 0) {
+      // Проверяем, являются ли текущие выбранные валюты доступными
+      const isFromCurrencyValid = availableCurrencies.includes(fromCurrency);
+      const isToCurrencyValid = availableCurrencies.includes(toCurrency);
+      
+      if (!isFromCurrencyValid) {
+        setFromCurrency(availableCurrencies[0]);
+      }
+      if (!isToCurrencyValid) {
+        setToCurrency(availableCurrencies[1] || availableCurrencies[0]);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [availableCurrencies]);
 
   useEffect(() => {
     refreshExchangeRates();
   }, []);
 
+  // Debug: показать данные в консоли при изменении
+  useEffect(() => {
+    console.log('ExchangeRates - currencies:', currencies);
+    console.log('ExchangeRates - fromCurrency:', fromCurrency);
+    console.log('ExchangeRates - exchangeRates:', exchangeRates);
+  }, [currencies, fromCurrency, exchangeRates]);
+
   const getRate = (from: string, to: string) => {
     if (from === to) return 1;
-    const r = exchangeRates.find((e) => e.from === from && e.to === to);
-    return r?.rate || 0;
+    // Ищем прямой курс
+    let r = exchangeRates.find((e) => e.from === from && e.to === to && e.from !== e.to);
+    if (r) return r?.rate;
+    
+    // Если нет прямого курса, пробуем найти обратный и инвертировать
+    const reverseRate = exchangeRates.find((e) => e.from === to && e.to === from && e.from !== e.to);
+    if (reverseRate && reverseRate.rate > 0) {
+      return 1 / reverseRate.rate;
+    }
+    
+    return 0;
   };
 
   const rate = getRate(fromCurrency, toCurrency);
@@ -34,13 +68,16 @@ const ExchangeRates = () => {
     setToCurrency(fromCurrency);
   };
 
+  // Получаем курсы для отображения в таблице
+  // Формат: из fromCurrency в каждую другую валюту
   const baseRates = currencies
-    .filter((c) => c !== fromCurrency)
+    .filter((c) => c !== fromCurrency) // исключаем текущую валюту
+    .filter((c, index, self) => self.indexOf(c) === index) // убираем дубликаты
     .map((c) => ({
       currency: c,
-      rate: getRate(fromCurrency, c),
+      rate: getRate(fromCurrency, c), // Курс из fromCurrency в валюту c
     }))
-    .filter((r) => r.rate > 0);
+    .filter((r) => r.rate > 0 && r.currency !== fromCurrency);
 
   return (
     <div className="space-y-5 animate-fade-in">
@@ -152,12 +189,7 @@ const ExchangeRates = () => {
           <div className="space-y-2">
             {baseRates.map((r) => (
               <div key={r.currency} className="fintech-card flex items-center justify-between py-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl secondary-bg flex items-center justify-center text-sm font-bold">
-                    {r.currency}
-                  </div>
-                  <p className="text-sm font-medium">{r.currency}</p>
-                </div>
+                <p className="text-sm font-medium">{fromCurrency} → {r.currency}</p>
                 <p className="text-sm font-semibold">
                   {r.rate.toLocaleString("en-US", {
                     minimumFractionDigits: 2,

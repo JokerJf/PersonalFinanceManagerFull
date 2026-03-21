@@ -126,11 +126,11 @@ const EditAccountModal = ({ account, open, onOpenChange, onSave }: EditAccountMo
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:mx-4 mx-0 sm:max-w-sm max-w-[calc(100vw-1rem)] modal-bg rounded-2xl">
+      <DialogContent className="sm:mx-4 mx-0 sm:max-w-sm max-w-[calc(100vw-1rem)] modal-bg rounded-xl sm:rounded-2xl">
         <DialogHeader>
           <DialogTitle className="text-slate-900 dark:text-white">Редактировать счёт</DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4">
           {/* Account Name */}
           <div>
             <label className="text-xs font-medium text-slate-700 dark:text-white/70 mb-1 block">Название счёта</label>
@@ -141,21 +141,21 @@ const EditAccountModal = ({ account, open, onOpenChange, onSave }: EditAccountMo
                 if (errors.name) setErrors({ ...errors, name: undefined });
               }} 
               placeholder="Например: Моя Visa карта" 
-              className={`w-full rounded-2xl input-bg text-slate-900 dark:text-white px-4 py-3 text-sm focus:ring-2 focus:ring-primary outline-none shadow-sm ${errors.name ? "border-red-500 border-2" : ""}`} 
+              className={`w-full rounded-xl sm:rounded-2xl input-bg text-slate-900 dark:text-white px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm focus:ring-2 focus:ring-primary outline-none shadow-sm ${errors.name ? "border-red-500 border-2" : ""}`} 
             />
-            {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name}</p>}
+            {errors.name && <p className="text-red-500 text-[10px] sm:text-xs mt-0.5 sm:mt-1">{errors.name}</p>}
           </div>
 
           {/* Type */}
           <div>
             <label className="text-xs font-medium text-slate-700 dark:text-white/70 mb-1 block">Тип</label>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
               {(["card", "cash", "bank"] as const).map(t => (
                 <button 
                   key={t} 
                   type="button"
                   onClick={() => handleChange("type", t)} 
-                  className={`py-2.5 rounded-2xl text-xs font-semibold capitalize transition-colors shadow-sm ${formData.type === t ? "bg-primary text-white" : "btn-secondary"}`}
+                  className={`py-1.5 sm:py-2.5 rounded-xl sm:rounded-2xl text-[10px] sm:text-xs font-semibold capitalize transition-colors shadow-sm ${formData.type === t ? "bg-primary text-white" : "btn-secondary"}`}
                 >
                   {t === "card" ? "Карта" : t === "cash" ? "Наличные" : "Банк"}
                 </button>
@@ -165,7 +165,7 @@ const EditAccountModal = ({ account, open, onOpenChange, onSave }: EditAccountMo
 
           {/* Card Number and Expiry Date - in one row (75% / 25%) */}
           {isCardType && (
-            <div className="grid grid-cols-4 gap-3">
+            <div className="grid grid-cols-4 gap-2 sm:gap-3">
               <div className="col-span-3">
                 <label className="text-xs font-medium text-slate-700 dark:text-white/70 mb-1 block">Номер карты</label>
                 <input 
@@ -180,9 +180,9 @@ const EditAccountModal = ({ account, open, onOpenChange, onSave }: EditAccountMo
                   placeholder="1234 5678 9012 3456" 
                   maxLength={19}
                   inputMode="numeric"
-                  className={`w-full rounded-2xl input-bg text-slate-900 dark:text-white px-4 py-3 text-sm focus:ring-2 focus:ring-primary outline-none shadow-sm ${errors.cardNumber ? "border-red-500 border-2" : ""}`} 
+                  className={`w-full rounded-xl sm:rounded-2xl input-bg text-slate-900 dark:text-white px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm focus:ring-2 focus:ring-primary outline-none shadow-sm ${errors.cardNumber ? "border-red-500 border-2" : ""}`} 
                 />
-                {errors.cardNumber && <p className="text-red-500 text-xs mt-1">{errors.cardNumber}</p>}
+                {errors.cardNumber && <p className="text-red-500 text-[10px] sm:text-xs mt-0.5 sm:mt-1">{errors.cardNumber}</p>}
               </div>
               <div className="col-span-1">
                 <label className="text-xs font-medium text-slate-700 dark:text-white/70 mb-1 block">Срок</label>
@@ -196,9 +196,9 @@ const EditAccountModal = ({ account, open, onOpenChange, onSave }: EditAccountMo
                   placeholder="MM/YY" 
                   maxLength={5}
                   inputMode="numeric"
-                  className={`w-full rounded-2xl input-bg text-slate-900 dark:text-white px-4 py-3 text-sm focus:ring-2 focus:ring-primary outline-none shadow-sm ${errors.expiryDate ? "border-red-500 border-2" : ""}`} 
+                  className={`w-full rounded-xl sm:rounded-2xl input-bg text-slate-900 dark:text-white px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm focus:ring-2 focus:ring-primary outline-none shadow-sm ${errors.expiryDate ? "border-red-500 border-2" : ""}`} 
                 />
-                {errors.expiryDate && <p className="text-red-500 text-xs mt-1">{errors.expiryDate}</p>}
+                {errors.expiryDate && <p className="text-red-500 text-[10px] sm:text-xs mt-0.5 sm:mt-1">{errors.expiryDate}</p>}
               </div>
             </div>
           )}
@@ -211,7 +211,7 @@ const EditAccountModal = ({ account, open, onOpenChange, onSave }: EditAccountMo
                 value={formData.cardNetwork || "visa"} 
                 onValueChange={(value) => handleChange("cardNetwork", value as "visa" | "mastercard" | "humo" | "uzcard")}
               >
-                <SelectTrigger className="w-full rounded-2xl input-bg text-slate-900 dark:text-white px-4 py-3 text-sm focus:ring-2 focus:ring-primary outline-none shadow-sm">
+                <SelectTrigger className="w-full rounded-xl sm:rounded-2xl input-bg text-slate-900 dark:text-white px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm focus:ring-2 focus:ring-primary outline-none shadow-sm">
                   <SelectValue placeholder="Выберите сеть" />
                 </SelectTrigger>
                 <SelectContent>
@@ -232,7 +232,7 @@ const EditAccountModal = ({ account, open, onOpenChange, onSave }: EditAccountMo
                 value={formData.currency || "USD"} 
                 onValueChange={(value) => handleChange("currency", value)}
               >
-                <SelectTrigger className="w-full rounded-2xl input-bg text-slate-900 dark:text-white px-4 py-3 text-sm focus:ring-2 focus:ring-primary outline-none shadow-sm">
+                <SelectTrigger className="w-full rounded-xl sm:rounded-2xl input-bg text-slate-900 dark:text-white px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm focus:ring-2 focus:ring-primary outline-none shadow-sm">
                   <SelectValue placeholder="Выберите валюту" />
                 </SelectTrigger>
                 <SelectContent>
@@ -248,7 +248,7 @@ const EditAccountModal = ({ account, open, onOpenChange, onSave }: EditAccountMo
           {isCardType && (
             <div>
               <label className="text-xs font-medium text-slate-700 dark:text-white/70 mb-1 block">Стиль карты</label>
-              <div className="flex flex-wrap gap-2 justify-start">
+              <div className="flex flex-wrap gap-1.5 sm:gap-2 justify-start">
                 {CARD_COLOR_STYLES.map((style) => {
                   const isDayNight = style.isDayNight;
                   const isSelected = formData.colorStyle === style.id;
@@ -258,7 +258,7 @@ const EditAccountModal = ({ account, open, onOpenChange, onSave }: EditAccountMo
                       key={style.id}
                       type="button"
                       onClick={() => handleChange("colorStyle", style.id)}
-                      className={`flex-shrink-0 w-8 h-8 rounded-lg transition-all duration-200 hover:scale-110 ${
+                      className={`flex-shrink-0 w-7 h-7 sm:w-8 sm:h-8 rounded-lg transition-all duration-200 hover:scale-110 ${
                         isSelected 
                           ? "ring-2 ring-primary scale-110" 
                           : "opacity-70 hover:opacity-100"
@@ -272,7 +272,7 @@ const EditAccountModal = ({ account, open, onOpenChange, onSave }: EditAccountMo
                     >
                       {isSelected && (
                         <div className="w-full h-full flex items-center justify-center">
-                          <div className={`w-2.5 h-2.5 rounded-full animate-pulse ${isDayNight ? "bg-slate-900" : "bg-white"}`} />
+                          <div className={`w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full animate-pulse ${isDayNight ? "bg-slate-900" : "bg-white"}`} />
                         </div>
                       )}
                     </button>
@@ -293,9 +293,9 @@ const EditAccountModal = ({ account, open, onOpenChange, onSave }: EditAccountMo
                 if (errors.balance) setErrors({ ...errors, balance: undefined });
               }} 
               placeholder="0.00" 
-              className={`w-full rounded-2xl input-bg text-slate-900 dark:text-white px-4 py-3 text-sm focus:ring-2 focus:ring-primary outline-none shadow-sm ${errors.balance ? "border-red-500 border-2" : ""}`} 
+              className={`w-full rounded-xl sm:rounded-2xl input-bg text-slate-900 dark:text-white px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm focus:ring-2 focus:ring-primary outline-none shadow-sm ${errors.balance ? "border-red-500 border-2" : ""}`} 
             />
-            {errors.balance && <p className="text-red-500 text-xs mt-1">{errors.balance}</p>}
+            {errors.balance && <p className="text-red-500 text-[10px] sm:text-xs mt-0.5 sm:mt-1">{errors.balance}</p>}
           </div>
 
           {/* Include in Balance */}
@@ -315,7 +315,7 @@ const EditAccountModal = ({ account, open, onOpenChange, onSave }: EditAccountMo
           </div>
 
           {/* Submit Button */}
-          <button type="submit" className="w-full py-3 rounded-2xl bg-primary text-white font-semibold text-sm shadow-md">
+          <button type="submit" className="w-full py-2.5 sm:py-3 rounded-xl sm:rounded-2xl bg-primary text-white font-semibold text-xs sm:text-sm shadow-md">
             Сохранить изменения
           </button>
         </form>

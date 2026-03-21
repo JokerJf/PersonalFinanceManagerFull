@@ -20,6 +20,7 @@ import {
   shouldUseMockData, 
   getMockDelay 
 } from '../lib/env';
+import authApi from './auth';
 
 // Тип ответа API
 interface ApiResponse<T> {
@@ -53,7 +54,7 @@ export const setApiConfig = (config: Partial<ApiConfig>) => {
 // Функция для получения настроек API
 export const getApiConfig = () => apiConfig;
 
-// Базовый fetch для реального API
+// Базовый fetch для реального API с автоматическим обновлением токена
 const fetchFromApi = async <T>(
   endpoint: string, 
   options: RequestInit = {}
@@ -77,6 +78,57 @@ const fetchFromApi = async <T>(
     ...options,
     headers,
   });
+  
+  // Если токен истёк или сессия удалена (401), пробуем обновить
+  if (response.status === 401) {
+    const errorData = await response.json().catch(() => ({ message: '' }));
+    const errorMessage = errorData.message || '';
+    
+    // Если сессия удалена/отозвана - сразу выходим без попытки обновления
+    if (errorMessage.includes('Session') || errorMessage.includes('session')) {
+      authApi.clearAuth();
+      window.location.href = '/login';
+      throw new Error('Сессия завершена. Пожалуйста, войдите снова.');
+    }
+    
+    // Иначе пробуем обновить токен
+    const refreshed = await authApi.refreshToken();
+    if (refreshed) {
+      // Повторяем запрос с новым токеном
+      const newToken = localStorage.getItem('auth_token');
+      (headers as Record<string, string>)['Authorization'] = `Bearer ${newToken}`;
+      const retryResponse = await fetch(url, {
+        ...options,
+        headers,
+      });
+      
+      // Проверяем снова на 401 после рефреша
+      if (retryResponse.status === 401) {
+        const retryError = await retryResponse.json().catch(() => ({ message: '' }));
+        if (retryError.message?.includes('Session')) {
+          authApi.clearAuth();
+          window.location.href = '/login';
+          throw new Error('Сессия завершена. Пожалуйста, войдите снова.');
+        }
+      }
+      
+      if (!retryResponse.ok) {
+        const error = await retryResponse.json().catch(() => ({ message: 'Request failed' }));
+        throw new Error(error.message || `HTTP ${retryResponse.status}`);
+      }
+      
+      const json = await retryResponse.json();
+      if (json && typeof json === 'object' && 'data' in json) {
+        return json.data as T;
+      }
+      return json as T;
+    } else {
+      // Не удалось обновить токен - очищаем и выбрасываем ошибку
+      authApi.clearAuth();
+      window.location.href = '/login';
+      throw new Error('Сессия истекла. Пожалуйста, войдите снова.');
+    }
+  }
   
   if (!response.ok) {
     const error = await response.json().catch(() => ({ message: 'Request failed' }));
@@ -209,12 +261,29 @@ export const transactionsApi = {
   },
 
   // Создать новую транзакцию
-  async createTransaction(transaction: Omit<Transaction, 'id'>, workspace: string = 'personal'): Promise<Transaction> {
+  async createTransaction(transaction: Omit<Transaction, 'id'>, workspace: string = 'personal'): Promise<Transaction | Transaction[]> {
     if (!apiConfig.useMockData) {
-      return fetchFromApi<Transaction>('/transactions', {
+      const data = await fetchFromApi<Transaction | Transaction[]>('/transactions', {
         method: 'POST',
         body: JSON.stringify({ ...transaction, workspace }),
       });
+      // Конвертируем числовые ID в строки и типы в нижний регистр
+      if (Array.isArray(data)) {
+        return data.map(tx => ({
+          ...tx,
+          id: String(tx.id),
+          type: (tx.type as string).toLowerCase() as Transaction['type'],
+          accountId: String(tx.accountId),
+          toAccountId: tx.toAccountId ? String(tx.toAccountId) : undefined
+        }));
+      }
+      return {
+        ...data,
+        id: String(data.id),
+        type: (data.type as string).toLowerCase() as Transaction['type'],
+        accountId: String(data.accountId),
+        toAccountId: data.toAccountId ? String(data.toAccountId) : undefined
+      };
     }
     const newTransaction: Transaction = {
       ...transaction,
@@ -289,7 +358,11 @@ export const debtsApi = {
     if (!apiConfig.useMockData) {
       const data = await fetchFromApi<any>('/debts', {
         method: 'POST',
-        body: JSON.stringify({ ...debt, workspace }),
+        body: JSON.stringify({ 
+          ...debt, 
+          workspace,
+          notes: debt.description, // Преобразуем description в notes для бэкенда
+        }),
       });
       // Маппим данные из бэкенда
       return {
@@ -315,7 +388,10 @@ export const debtsApi = {
     if (!apiConfig.useMockData) {
       const data = await fetchFromApi<any>(`/debts/${id}?workspace=${workspace}`, {
         method: 'PUT',
-        body: JSON.stringify(updates),
+        body: JSON.stringify({
+          ...updates,
+          notes: updates.description, // Преобразуем description в notes для бэкенда
+        }),
       });
       // Маппим данные из бэкенда
       return {

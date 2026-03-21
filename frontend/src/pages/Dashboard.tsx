@@ -207,14 +207,7 @@ const Dashboard = () => {
       });
       return;
     }
-    // Для перевода нужно минимум 2 счёта
-    if (type === "transfer" && accounts.length < 2) {
-      toast({
-        title: t("transactionForm.toasts.error.needTwoAccounts"),
-        description: t("dashboard.toasts.needTwoAccounts"),
-      });
-      return;
-    }
+    // Для перевода открываем модалку - если счетов меньше 2, там будет предложение создать новый счёт
     setAddTransactionDefaultType(type);
     setAddTransactionModalOpen(true);
   };

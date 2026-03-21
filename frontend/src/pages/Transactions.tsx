@@ -89,10 +89,33 @@ const {
     return accounts.find((a) => a.id === selectedAccountId)?.name;
   };
 
+  const getCategoryLabel = (category: string) => {
+    // Маппинг старых английских названий на ключи
+    const keyMap: Record<string, string> = {
+      "Food & Dining": "foodDining",
+      "Transport": "transport",
+      "Shopping": "shopping",
+      "Entertainment": "entertainment",
+      "Health": "health",
+      "Housing": "housing",
+      "Salary": "salary",
+      "Freelance": "freelance",
+      "Investment": "investment",
+      "Gift": "gift",
+      "Transfer": "transfer",
+      "Other": "other",
+    };
+    
+    const key = keyMap[category] || category;
+    const translated = t(`transactionForm.categories.${key}`);
+    // Если перевод не найден (категория пользовательская), возвращаем как есть
+    return translated === `transactionForm.categories.${key}` ? category : translated;
+  };
+
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-4 sm:space-y-6 animate-fade-in">
       <div className="flex items-center justify-between gap-2">
-        <h1 className="text-xl font-bold">{t("transactions.title")}</h1>
+        <h1 className="text-xl sm:text-lg font-bold">{t("transactions.title")}</h1>
 
         {!isLoadingData && (
           <button
@@ -107,9 +130,9 @@ const {
               // Для перевода нужно минимум 2 счёта - проверка будет в модале
               setAddTransactionModalOpen(true);
             }}
-            className="w-9 h-9 rounded-full bg-primary flex items-center justify-center text-primary-foreground"
+            className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-primary flex items-center justify-center text-primary-foreground"
           >
-            <Plus size={18} />
+            <Plus size={16} sm:size={18} />
           </button>
         )}
       </div>
@@ -121,29 +144,29 @@ const {
           <Skeleton className="h-12 flex-1 rounded-2xl" />
         </div>
       ) : (
-        <div className="flex gap-2">
+        <div className="flex gap-1.5 sm:gap-2">
           {/* Account Filter */}
           <div className="relative flex-1">
             <button
               onClick={() => setShowFilters(!showFilters)}
-              className="w-full btn-secondary rounded-2xl py-3 px-4 flex items-center justify-between"
+              className="w-full btn-secondary rounded-xl sm:rounded-2xl py-2.5 sm:py-3 px-3 sm:px-4 flex items-center justify-between"
             >
-              <span className="text-sm font-medium text-slate-900 dark:text-white truncate">
+              <span className="text-xs sm:text-sm font-medium text-slate-900 dark:text-white truncate">
                 {getSelectedAccountLabel()}
               </span>
               <ChevronDown
-                size={18}
-                className={`transition-transform shrink-0 ml-2 ${showFilters ? "rotate-180" : ""}`}
+                size={16} sm:size={18}
+                className={`transition-transform shrink-0 ml-1 sm:ml-2 ${showFilters ? "rotate-180" : ""}`}
               />
             </button>
 
             {showFilters && (
-              <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-[#0d1017] border border-gray-200 dark:border-slate-700 rounded-2xl shadow-lg z-10 overflow-hidden max-h-60 overflow-y-auto">
+              <div className="absolute top-full left-0 right-0 mt-1 sm:mt-2 bg-white dark:bg-[#0d1017] border border-gray-200 dark:border-slate-700 rounded-xl sm:rounded-2xl shadow-lg z-10 overflow-hidden max-h-48 sm:max-h-60 overflow-y-auto">
                 <button
                   onClick={() => {
                     setSelectedAccountId("all");
                   }}
-                  className={`w-full text-left px-4 py-2.5 text-sm ${
+                  className={`w-full text-left px-3 sm:px-4 py-2 text-xs sm:text-sm ${
                     selectedAccountId === "all"
                       ? "bg-primary/10 text-primary"
                       : "text-slate-700 dark:text-white hover:bg-gray-100 dark:hover:bg-[#2a2f3c4d]"
@@ -158,7 +181,7 @@ const {
                     onClick={() => {
                       setSelectedAccountId(account.id);
                     }}
-                    className={`w-full text-left px-4 py-2.5 text-sm ${
+                    className={`w-full text-left px-3 sm:px-4 py-2 text-xs sm:text-sm ${
                       selectedAccountId === account.id
                         ? "bg-primary/10 text-primary"
                         : "text-slate-700 dark:text-white hover:bg-gray-100 dark:hover:bg-[#2a2f3c4d]"
@@ -175,24 +198,24 @@ const {
           <div className="relative flex-1">
             <button
               onClick={() => setShowTypeFilter(!showTypeFilter)}
-              className="w-full btn-secondary rounded-2xl py-3 px-4 flex items-center justify-between"
+              className="w-full btn-secondary rounded-xl sm:rounded-2xl py-2.5 sm:py-3 px-3 sm:px-4 flex items-center justify-between"
             >
-              <span className="text-sm font-medium text-slate-900 dark:text-white capitalize">
+              <span className="text-xs sm:text-sm font-medium text-slate-900 dark:text-white capitalize">
                 {filters.find((f) => f.key === filter)?.label}
               </span>
               <ChevronDown
-                size={18}
-                className={`transition-transform shrink-0 ml-2 ${showTypeFilter ? "rotate-180" : ""}`}
+                size={16} sm:size={18}
+                className={`transition-transform shrink-0 ml-1 sm:ml-2 ${showTypeFilter ? "rotate-180" : ""}`}
               />
             </button>
 
             {showTypeFilter && (
-              <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-[#0d1017] border border-gray-200 dark:border-slate-700 rounded-2xl shadow-lg z-10 overflow-hidden">
+              <div className="absolute top-full left-0 right-0 mt-1 sm:mt-2 bg-white dark:bg-[#0d1017] border border-gray-200 dark:border-slate-700 rounded-xl sm:rounded-2xl shadow-lg z-10 overflow-hidden">
                 {filters.map((f) => (
                   <button
                     key={f.key}
                     onClick={() => setFilter(f.key)}
-                    className={`w-full text-left px-4 py-2.5 text-sm capitalize ${
+                    className={`w-full text-left px-3 sm:px-4 py-2 text-xs sm:text-sm capitalize ${
                       filter === f.key
                         ? "bg-primary/10 text-primary"
                         : "text-slate-700 dark:text-white hover:bg-gray-100 dark:hover:bg-[#2a2f3c4d]"
@@ -208,19 +231,19 @@ const {
       )}
 
       {isLoadingData ? (
-        <div className="space-y-5">
-          <Skeleton className="h-6 w-48 mb-2" />
+        <div className="space-y-4 sm:space-y-5">
+          <Skeleton className="h-5 sm:h-6 w-36 sm:w-48 mb-1 sm:mb-2" />
           <div className="space-y-2">
-            <Skeleton className="h-20 w-full rounded-2xl" />
-            <Skeleton className="h-20 w-full rounded-2xl" />
-            <Skeleton className="h-20 w-full rounded-2xl" />
+            <Skeleton className="h-16 sm:h-20 w-full rounded-xl sm:rounded-2xl" />
+            <Skeleton className="h-16 sm:h-20 w-full rounded-xl sm:rounded-2xl" />
+            <Skeleton className="h-16 sm:h-20 w-full rounded-xl sm:rounded-2xl" />
           </div>
         </div>
       ) : (
-        <div className="space-y-5">
+        <div className="space-y-4 sm:space-y-5">
           {Object.entries(grouped).map(([date, txs]) => (
             <div key={date}>
-              <p className="text-xs text-muted-foreground font-semibold mb-2 uppercase tracking-wider">
+              <p className="text-[10px] sm:text-xs text-muted-foreground font-semibold mb-1.5 sm:mb-2 uppercase tracking-wider">
                 {new Date(date).toLocaleString(language === "uz" ? "uz-UZ" : "ru-RU", {
                   weekday: "long",
                   day: "2-digit",
@@ -232,32 +255,32 @@ const {
                 })}
               </p>
 
-              <div className="space-y-2">
+              <div className="space-y-1.5 sm:space-y-2">
                 {txs.map((tx) => (
                   <div
                     key={tx.id}
                     onClick={() => handleTransactionClick(tx.id)}
-                    className="rounded-2xl border border-border/30 flex items-center gap-3 py-3 cursor-pointer active:scale-[0.98] transition-transform px-4 card-container"
+                    className="rounded-xl sm:rounded-2xl border border-border/30 flex items-center gap-2 sm:gap-3 py-2.5 sm:py-3 cursor-pointer active:scale-[0.98] transition-transform px-3 sm:px-4 card-container"
                   >
                     <CategoryIcon icon={tx.icon} />
 
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate">{tx.description}</p>
+                      <p className="text-xs sm:text-sm font-medium truncate">{tx.description}</p>
 
                       {tx.note && (
-                        <p className="text-[10px] text-muted-foreground truncate">
+                        <p className="text-[9px] sm:text-[10px] text-muted-foreground truncate">
                           {tx.note}
                         </p>
                       )}
 
-                      <p className="text-xs text-muted-foreground">
-                        {tx.category} · {tx.accountName}
+                      <p className="text-[10px] sm:text-xs text-muted-foreground">
+                        {getCategoryLabel(tx.category)} · {tx.accountName}
                       </p>
                     </div>
 
-                    <div className="text-right">
+                    <div className="text-right shrink-0">
                       <p
-                        className={`text-sm font-semibold ${
+                        className={`text-xs sm:text-sm font-semibold ${
                           tx.type === "income"
                             ? "text-emerald-600 dark:text-emerald-400"
                             : tx.type === "expense"
@@ -269,7 +292,7 @@ const {
                       </p>
 
                       {tx.toCurrency && tx.toCurrency !== tx.currency && (
-                        <p className="text-[10px] text-muted-foreground">
+                        <p className="text-[9px] sm:text-[10px] text-muted-foreground">
                           {formatConvertedAmount(tx)}
                         </p>
                       )}
@@ -283,8 +306,8 @@ const {
       )}
 
       {!isLoadingData && filtered.length === 0 && (
-        <div className="text-center py-12">
-          <p className="text-muted-foreground text-sm">
+        <div className="text-center py-8 sm:py-12">
+          <p className="text-muted-foreground text-xs sm:text-sm">
             {t("transactions.noTransactions")}
           </p>
         </div>
