@@ -63,7 +63,13 @@ function formatLocalDateTime(date: Date): string {
   const day = date.getDate().toString().padStart(2, "0");
   const hours = date.getHours().toString().padStart(2, "0");
   const minutes = date.getMinutes().toString().padStart(2, "0");
-  return `${year}-${month}-${day}T${hours}:${minutes}`;
+  const seconds = date.getSeconds().toString().padStart(2, "0");
+  // Формат ISO 8601 с timezone offset (+05:00 для Ташкента)
+  const timezoneOffset = -date.getTimezoneOffset();
+  const offsetSign = timezoneOffset >= 0 ? '+' : '-';
+  const offsetHours = Math.floor(Math.abs(timezoneOffset) / 60).toString().padStart(2, "0");
+  const offsetMinutes = Math.abs(timezoneOffset % 60).toString().padStart(2, "0");
+  return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}${offsetSign}${offsetHours}:${offsetMinutes}`;
 }
 
 function AddTransactionModal({
@@ -347,17 +353,33 @@ function AddTransactionModal({
           title: t("transactionForm.toasts.updated.title"),
           description: t("transactionForm.toasts.updated.description"),
         });
+        
+        handleClose();
+        if (onClose) onClose();
       } catch (error) {
         console.error("Error updating transaction:", error);
+        // Показываем ошибку, полученную от сервера
+        let errorMessage = t("transactionForm.toasts.error.updateFailed");
+        if (error && typeof error === 'object' && 'response' in error) {
+          const axiosError = error as { response?: { data?: { message?: string; errors?: Record<string, string[]> } } };
+          if (axiosError.response?.data?.message) {
+            errorMessage = axiosError.response.data.message;
+            // Если есть ошибки валидации, показываем их
+            if (axiosError.response.data.errors) {
+              const validationErrors = Object.entries(axiosError.response.data.errors)
+                .map(([field, msgs]) => `${field}: ${msgs.join(', ')}`)
+                .join('; ');
+              errorMessage = `${errorMessage} (${validationErrors})`;
+            }
+          }
+        }
         toast({
           title: t("common.error"),
-          description: t("transactionForm.toasts.error.updateFailed"),
+          description: errorMessage,
           variant: "destructive",
         });
+        // Не закрываем форму при ошибке
       }
-
-      handleClose();
-      if (onClose) onClose();
       return;
     }
 
@@ -384,33 +406,33 @@ function AddTransactionModal({
       note: note || undefined,
     };
 
-    const updateAccountBalances = () => {
-      const newAccounts = accounts.map((account) => {
-        if (account.id === fromAccountId) {
-          if (txType === "expense" || txType === "transfer") {
-            return { ...account, balance: account.balance - amountNum };
-          }
-        }
-
-        if (txType === "transfer" && account.id === toAccountId) {
-          return { ...account, balance: account.balance + (finalToAmount || amountNum) };
-        }
-
-        if (txType === "income" && account.id === fromAccountId) {
-          return { ...account, balance: account.balance + amountNum };
-        }
-
-        return account;
-      });
-
-      setAccounts(newAccounts);
-    };
-
-    updateAccountBalances();
-
     // Сохраняем транзакцию через API
     try {
       const newTx = await addTransaction(tx);
+      
+      // Обновляем балансы только после успешного ответа от сервера
+      const updateAccountBalances = () => {
+        const newAccounts = accounts.map((account) => {
+          if (account.id === fromAccountId) {
+            if (txType === "expense" || txType === "transfer") {
+              return { ...account, balance: account.balance - amountNum };
+            }
+          }
+
+          if (txType === "transfer" && account.id === toAccountId) {
+            return { ...account, balance: account.balance + (finalToAmount || amountNum) };
+          }
+
+          if (txType === "income" && account.id === fromAccountId) {
+            return { ...account, balance: account.balance + amountNum };
+          }
+
+          return account;
+        });
+
+        setAccounts(newAccounts);
+      };
+      updateAccountBalances();
       
       // Обрабатываем массив транзакций (для переводов) или одиночную транзакцию
       if (Array.isArray(newTx)) {
@@ -435,14 +457,28 @@ function AddTransactionModal({
       });
     } catch (error) {
       console.error("Error creating transaction:", error);
-      // Fallback: используем локальную транзакцию
-      const localTx: Transaction = { ...tx, id: `tx-${Date.now()}` };
-      setTransactions([localTx, ...transactions]);
+      // Показываем ошибку, полученную от сервера
+      let errorMessage = t("transactionForm.toasts.error.createFailed");
+      if (error && typeof error === 'object' && 'response' in error) {
+        const axiosError = error as { response?: { data?: { message?: string; errors?: Record<string, string[]> } } };
+        if (axiosError.response?.data?.message) {
+          errorMessage = axiosError.response.data.message;
+          // Если есть ошибки валидации, показываем их
+          if (axiosError.response.data.errors) {
+            const validationErrors = Object.entries(axiosError.response.data.errors)
+              .map(([field, msgs]) => `${field}: ${msgs.join(', ')}`)
+              .join('; ');
+            errorMessage = `${errorMessage} (${validationErrors})`;
+          }
+        }
+      }
       toast({
         title: t("common.error"),
-        description: t("transactionForm.toasts.error.createFailed"),
+        description: errorMessage,
         variant: "destructive",
       });
+      // Не обновляем список транзакций и не закрываем форму при ошибке
+      return;
     }
 
     handleClose();

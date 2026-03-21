@@ -28,7 +28,13 @@ function formatLocalDateTime(date: Date): string {
   const day = date.getDate().toString().padStart(2, "0");
   const hours = date.getHours().toString().padStart(2, "0");
   const minutes = date.getMinutes().toString().padStart(2, "0");
-  return `${year}-${month}-${day}T${hours}:${minutes}`;
+  const seconds = date.getSeconds().toString().padStart(2, "0");
+  // Формат ISO 8601 с timezone offset
+  const timezoneOffset = -date.getTimezoneOffset();
+  const offsetSign = timezoneOffset >= 0 ? '+' : '-';
+  const offsetHours = Math.floor(Math.abs(timezoneOffset) / 60).toString().padStart(2, "0");
+  const offsetMinutes = Math.abs(timezoneOffset % 60).toString().padStart(2, "0");
+  return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}${offsetSign}${offsetHours}:${offsetMinutes}`;
 }
 
 function formatDisplayDate(date: Date): string {
@@ -42,11 +48,35 @@ function formatDisplayDate(date: Date): string {
 }
 
 function parseLocalDateTime(value: string): Date {
-  // Parse "YYYY-MM-DDTHH:MM" format as local time
+  // Parse "YYYY-MM-DDTHH:MM:SS+HH:MM" or "YYYY-MM-DDTHH:MM" format as local time
+  // Remove timezone offset and parse as local time
+  const withOffset = value.includes('+') || value.includes('-') && value.split('T')[1]?.includes('-');
+  
+  if (withOffset) {
+    // For ISO 8601 with offset, we need to convert to local time
+    // First, parse the date part and time part without timezone
+    const match = value.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?([+-]\d{2}:?\d{2}|Z)?$/);
+    if (match) {
+      const [, year, month, day, hours, minutes, seconds] = match;
+      return new Date(
+        parseInt(year),
+        parseInt(month) - 1,
+        parseInt(day),
+        parseInt(hours),
+        parseInt(minutes),
+        seconds ? parseInt(seconds) : 0
+      );
+    }
+  }
+  
+  // Fallback: parse as simple local format
   const [datePart, timePart] = value.split('T');
   const [year, month, day] = datePart.split('-').map(Number);
-  const [hours, minutes] = timePart.split(':').map(Number);
-  const date = new Date(year, month - 1, day, hours, minutes);
+  const timeParts = timePart.split(':');
+  const hours = parseInt(timeParts[0]);
+  const minutes = parseInt(timeParts[1]);
+  const seconds = timeParts[2] ? parseInt(timeParts[2]) : 0;
+  const date = new Date(year, month - 1, day, hours, minutes, seconds);
   return date;
 }
 
