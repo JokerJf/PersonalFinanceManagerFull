@@ -14,6 +14,7 @@ const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
 
   // Режим определяется один раз при загрузке - это константа
   const isDevMode = isDevelopment();
@@ -25,9 +26,82 @@ const Login = () => {
   const [lastName, setLastName] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
 
+  // Валидация полей
+  const validateField = (name: string, value: string): string => {
+    switch (name) {
+      case 'email':
+        if (!value) return 'Email обязателен';
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) return 'Введите корректный email';
+        break;
+      case 'password':
+        if (!value) return 'Пароль обязателен';
+        if (value.length < 6) return 'Пароль должен быть минимум 6 символов';
+        break;
+      case 'firstName':
+        if (!value) return 'Имя обязательно';
+        if (value.length < 1) return 'Имя обязательно';
+        break;
+      case 'lastName':
+        if (!value) return 'Фамилия обязательна';
+        if (value.length < 1) return 'Фамилия обязательна';
+        break;
+      case 'confirmPassword':
+        if (!value) return 'Подтверждение пароля обязательно';
+        if (value !== password) return 'Пароли не совпадают';
+        break;
+    }
+    return '';
+  };
+
+  const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    const error = validateField(name, value);
+    setValidationErrors(prev => ({ ...prev, [name]: error }));
+  };
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    
+    // Обновляем значение
+    if (name === 'email') setEmail(value);
+    else if (name === 'password') setPassword(value);
+    else if (name === 'firstName') setFirstName(value);
+    else if (name === 'lastName') setLastName(value);
+    else if (name === 'confirmPassword') setConfirmPassword(value);
+    
+    // Убираем ошибку валидации при изменении
+    if (validationErrors[name]) {
+      setValidationErrors(prev => ({ ...prev, [name]: '' }));
+    }
+  };
+
+  const validateForm = (): boolean => {
+    const errors: Record<string, string> = {};
+    
+    if (!isLogin) {
+      errors.email = validateField('email', email);
+      errors.password = validateField('password', password);
+      errors.firstName = validateField('firstName', firstName);
+      errors.lastName = validateField('lastName', lastName);
+      errors.confirmPassword = validateField('confirmPassword', confirmPassword);
+    } else {
+      errors.email = validateField('email', email);
+      errors.password = validateField('password', password);
+    }
+    
+    setValidationErrors(errors);
+    return !Object.values(errors).some(e => e);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    
+    // Клиентская валидация
+    if (!validateForm()) {
+      return;
+    }
+    
     setIsLoading(true);
 
     try {
@@ -40,12 +114,6 @@ const Login = () => {
         window.location.href = '/';
       } else {
         // Регистрация
-        if (password !== confirmPassword) {
-          setError('Пароли не совпадают');
-          setIsLoading(false);
-          return;
-        }
-
         const registerData: RegisterRequest = { email, password, firstName, lastName };
         const response = await authApi.register(registerData);
         
@@ -110,29 +178,36 @@ const Login = () => {
               </Label>
               <Input
                 id="email"
+                name="email"
                 type="email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={handleChange}
+                onBlur={handleBlur}
                 placeholder="example@mail.com"
                 required
-                className="input-bg h-12 rounded-xl text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-white/40 focus:ring-2 focus:ring-primary"
+                className={`input-bg h-12 rounded-xl text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-white/40 focus:ring-2 focus:ring-primary ${validationErrors.email ? 'border-destructive focus:ring-destructive' : ''}`}
               />
+              {validationErrors.email && (
+                <p className="text-xs text-destructive">{validationErrors.email}</p>
+              )}
             </div>
 
             {/* Password */}
             <div className="space-y-2">
               <Label htmlFor="password" className="text-slate-700 dark:text-white/80">
-                Пароль
+                Пароль {!isLogin && <span className="text-destructive">*</span>}
               </Label>
               <div className="relative">
                 <Input
                   id="password"
+                  name="password"
                   type={showPassword ? 'text' : 'password'}
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={handleChange}
+                  onBlur={handleBlur}
                   placeholder="Введите пароль"
                   required
-                  className="input-bg h-12 rounded-xl text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-white/40 pr-12"
+                  className={`input-bg h-12 rounded-xl text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-white/40 pr-12 ${validationErrors.password ? 'border-destructive focus:ring-destructive' : ''}`}
                 />
                 <button
                   type="button"
@@ -142,6 +217,12 @@ const Login = () => {
                   {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                 </button>
               </div>
+              {validationErrors.password && (
+                <p className="text-xs text-destructive">{validationErrors.password}</p>
+              )}
+              {!isLogin && !validationErrors.password && password.length > 0 && password.length < 6 && (
+                <p className="text-xs text-amber-600">Минимум 6 символов</p>
+              )}
             </div>
 
             {/* Registration fields */}
@@ -151,50 +232,65 @@ const Login = () => {
                   {/* First Name */}
                   <div className="space-y-2">
                     <Label htmlFor="firstName" className="text-slate-700 dark:text-white/80">
-                      Имя
+                      Имя <span className="text-destructive">*</span>
                     </Label>
                     <Input
                       id="firstName"
+                      name="firstName"
                       type="text"
                       value={firstName}
-                      onChange={(e) => setFirstName(e.target.value)}
+                      onChange={handleChange}
+                      onBlur={handleBlur}
                       placeholder="Иван"
                       required={!isLogin}
-                      className="input-bg h-12 rounded-xl text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-white/40"
+                      className={`input-bg h-12 rounded-xl text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-white/40 ${validationErrors.firstName ? 'border-destructive focus:ring-destructive' : ''}`}
                     />
+                    {validationErrors.firstName && (
+                      <p className="text-xs text-destructive">{validationErrors.firstName}</p>
+                    )}
                   </div>
 
                   {/* Last Name */}
                   <div className="space-y-2">
                     <Label htmlFor="lastName" className="text-slate-700 dark:text-white/80">
-                      Фамилия
+                      Фамилия <span className="text-destructive">*</span>
                     </Label>
                     <Input
                       id="lastName"
+                      name="lastName"
                       type="text"
                       value={lastName}
-                      onChange={(e) => setLastName(e.target.value)}
+                      onChange={handleChange}
+                      onBlur={handleBlur}
                       placeholder="Петров"
                       required={!isLogin}
-                      className="input-bg h-12 rounded-xl text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-white/40"
+                      className={`input-bg h-12 rounded-xl text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-white/40 ${validationErrors.lastName ? 'border-destructive focus:ring-destructive' : ''}`}
                     />
+                    {validationErrors.lastName && (
+                      <p className="text-xs text-destructive">{validationErrors.lastName}</p>
+                    )}
                   </div>
                 </div>
 
                 {/* Confirm Password */}
                 <div className="space-y-2">
                   <Label htmlFor="confirmPassword" className="text-slate-700 dark:text-white/80">
-                    Подтверждение пароля
+                    Подтверждение пароля <span className="text-destructive">*</span>
                   </Label>
                   <Input
                     id="confirmPassword"
+                    name="confirmPassword"
                     type={showPassword ? 'text' : 'password'}
                     value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    onChange={handleChange}
+                    onBlur={handleBlur}
                     placeholder="Повторите пароль"
                     required={!isLogin}
-                    className="input-bg h-12 rounded-xl text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-white/40"
+                    className={`input-bg h-12 rounded-xl text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-white/40 ${validationErrors.confirmPassword ? 'border-destructive focus:ring-destructive' : ''}`}
                   />
+                  {validationErrors.confirmPassword && (
+                    <p className="text-xs text-destructive">{validationErrors.confirmPassword}</p>
+                  )}
                 </div>
               </>
             )}

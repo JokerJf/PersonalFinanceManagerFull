@@ -30,7 +30,7 @@ services:
 
   backend:
     build:
-      context: ./backend
+      context: ./refactored
       dockerfile: Dockerfile
       args:
         - NODE_ENV=${NODE_ENV:-production}
@@ -45,6 +45,9 @@ services:
       DB_USERNAME: ${DB_USERNAME:-postgres}
       DB_PASSWORD: ${DB_PASSWORD:-postgres}
       JWT_SECRET: ${JWT_SECRET:-your-secret-key-change-in-production}
+      ACCESS_TOKEN_SECRET: ${ACCESS_TOKEN_SECRET:-access-secret-key-change-in-production}
+      REFRESH_TOKEN_SECRET: ${REFRESH_TOKEN_SECRET:-refresh-secret-key-change-in-production}
+      CORS_ORIGIN: ${CORS_ORIGIN:-*}
       SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-docker}
     depends_on:
       db:
