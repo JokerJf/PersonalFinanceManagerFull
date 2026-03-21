@@ -46,13 +46,15 @@ export async function listBudgets(userId: number, accountId?: string) {
 
 export async function getBudgetByMonth(userId: number, monthKey: string, accountId?: string) {
   const where: Record<string, unknown> = { userId, monthKey };
-  if (accountId) where.accountId = accountId;
+  if (accountId !== undefined && accountId !== null) {
+    where.accountId = accountId;
+  }
   return budgetRepo().findOne({ where, relations: ['categoryLimits', 'incomePlanItems'] });
 }
 
 export async function createBudget(userId: number, dto: CreateBudgetDto) {
   return AppDataSource.transaction(async (manager) => {
-    const accountId = dto.accountId !== undefined && dto.accountId !== null ? String(dto.accountId) : undefined;
+    const accountId = dto.accountId !== undefined && dto.accountId !== null ? String(dto.accountId) : null;
     const budgetData = {
       monthKey: dto.monthKey,
       accountId,
@@ -67,10 +69,18 @@ export async function createBudget(userId: number, dto: CreateBudgetDto) {
     if (dto.incomePlanItems?.length) await saveIncomePlanItems(saved.id, dto.incomePlanItems);
 
     // Return with relations using the same manager
-    return manager.findOne(BudgetPlan, {
+    const result = await manager.findOne(BudgetPlan, {
       where: { id: saved.id },
       relations: ['categoryLimits', 'incomePlanItems'],
     });
+    
+    // Ensure categoryLimits and incomePlanItems are always arrays
+    if (result) {
+      result.categoryLimits = result.categoryLimits || [];
+      result.incomePlanItems = result.incomePlanItems || [];
+    }
+    
+    return result;
   });
 }
 
@@ -89,7 +99,7 @@ export async function updateBudget(budgetId: number, userId: number, dto: Update
 
     Object.assign(budget, {
       monthKey: dto.monthKey ?? budget.monthKey,
-      accountId: dto.accountId !== undefined && dto.accountId !== null ? String(dto.accountId) : undefined,
+      accountId: dto.accountId !== undefined && dto.accountId !== null ? String(dto.accountId) : null,
       totalIncomePlan: dto.totalIncomePlan ?? budget.totalIncomePlan,
       totalExpensePlan: dto.totalExpensePlan ?? budget.totalExpensePlan,
     });

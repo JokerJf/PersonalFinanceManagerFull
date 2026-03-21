@@ -22,6 +22,10 @@ import familyRequestRoutes from './routes/familyRequest';
 const app = express();
 const PORT = process.env.PORT || 8080;
 
+// Доверяем первому прокси (nginx) — нужно для корректного X-Forwarded-For
+// Это позволяет rate limiter получать реальный IP клиента, а не IP nginx
+app.set('trust proxy', 1);
+
 const allowedOrigins = process.env.CORS_ORIGIN?.split(',') ?? ['*'];
 
 app.use(cors({

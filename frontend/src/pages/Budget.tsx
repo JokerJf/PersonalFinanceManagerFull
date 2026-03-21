@@ -1,6 +1,9 @@
 import { useMemo, useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { ArrowLeft, ChevronLeft, ChevronRight, Plus, Pencil, Calculator, Trash2, MoreVertical } from "lucide-react";
+import {
+  ArrowLeft, ChevronLeft, ChevronRight, Plus, Pencil,
+  Calculator, Trash2, MoreVertical,
+} from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useApp } from "@/context/AppContext";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -13,17 +16,45 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { api, BudgetPlanData } from "@/api/api";
 
-const incomeCategories = ["Salary", "Freelance", "Investment", "Gift", "Other"];
+// Ключи категорий — совпадают с тем что сохраняется в транзакциях
+const incomeCategories = ["salary", "freelance", "investment", "gift", "other"];
 const expenseCategories = [
-  "Food & Dining",
-  "Transport",
-  "Shopping",
-  "Entertainment",
-  "Health",
-  "Housing",
-  "Groceries",
-  "Other",
+  "foodDining",
+  "transport",
+  "shopping",
+  "entertainment",
+  "health",
+  "housing",
+  "other",
 ];
+
+// Перевод ключа категории в читаемое название через i18n
+const getCategoryLabel = (key: string, tFn: (k: string) => string): string => {
+  return tFn(`transactionForm.categories.${key}`);
+};
+
+// Маппинг старых английских названий (сохранённых на бэкенде) → camelCase ключи
+const legacyCategoryMap: Record<string, string> = {
+  "food & dining": "foodDining",
+  "food and dining": "foodDining",
+  "transport": "transport",
+  "shopping": "shopping",
+  "entertainment": "entertainment",
+  "health": "health",
+  "housing": "housing",
+  "groceries": "other",
+  "other": "other",
+  "salary": "salary",
+  "freelance": "freelance",
+  "investment": "investment",
+  "gift": "gift",
+};
+
+// Нормализуем ключ категории — приводим старые английские названия к camelCase
+const normalizeCategoryKey = (cat: string): string => {
+  const lower = cat.toLowerCase();
+  return legacyCategoryMap[lower] ?? cat;
+};
 
 const formatMonthKey = (date: Date) => {
   const year = date.getFullYear();
@@ -34,7 +65,6 @@ const formatMonthKey = (date: Date) => {
 const formatMonthLabel = (monthKey: string, locale: string) => {
   const [year, month] = monthKey.split("-").map(Number);
   const date = new Date(year, month - 1, 1);
-
   return date.toLocaleDateString(locale === "uz" ? "uz-UZ" : "ru-RU", {
     month: "long",
     year: "numeric",
@@ -45,7 +75,6 @@ const formatMoney = (amount: number, currency: string) => {
   if (currency === "UZS") {
     return `${Math.round(amount).toLocaleString("en-US")} сум`;
   }
-
   return new Intl.NumberFormat("en-US", {
     style: "currency",
     currency,
@@ -60,266 +89,241 @@ const getStatusColor = (progress: number) => {
   return "bg-success";
 };
 
-const getProgressTextColor = (progress: number) => {
-  if (progress >= 100) return "text-destructive";
-  if (progress >= 80) return "text-warning";
-  return "text-success";
-};
+// ─── Типы для лимитов ────────────────────────────────────────────────────────
+type CategoryLimitItem = { category: string; limitAmount: number };
 
+// ─── Основной компонент ───────────────────────────────────────────────────────
 const Budget = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
 
-  const {
-    language,
-    selectedCurrency,
-    transactions,
-    accounts,
-    refreshData,
-  } = useApp();
+  const { language, selectedCurrency, transactions, accounts, refreshData } = useApp();
 
-  useEffect(() => {
-    refreshData();
-  }, []);
+  useEffect(() => { refreshData(); }, []);
 
   const [selectedMonth, setSelectedMonth] = useState(formatMonthKey(new Date()));
-  
-  // По умолчанию выбираем первую карту
-  const [selectedAccountId, setSelectedAccountId] = useState<string>(() => {
-    return accounts.length > 0 ? accounts[0].id : "";
-  });
 
-  // Обновляем выбранный аккаунт когда загружаются аккаунты
+  const [selectedAccountId, setSelectedAccountId] = useState<string>(() =>
+    accounts.length > 0 ? accounts[0].id : ""
+  );
+
   useEffect(() => {
     if (accounts.length > 0 && !selectedAccountId) {
       setSelectedAccountId(accounts[0].id);
     }
   }, [accounts, selectedAccountId]);
 
-  // Состояние для бюджета с бэкенда
+  // ── Бюджет с бэкенда (Параметры бюджета + доходы по категориям) ──────────
   const [backendBudget, setBackendBudget] = useState<BudgetPlanData | null>(null);
 
-  // Загружаем бюджет при изменении месяца или аккаунта
-  useEffect(() => {
-    const loadBudget = async () => {
-      try {
-        const budget = await api.budgets.getBudgetByMonth(selectedMonth, selectedAccountId);
-        setBackendBudget(budget);
-      } catch (error) {
-        console.error('Error loading budget:', error);
-        setBackendBudget(null);
-      }
-    };
-    loadBudget();
-  }, [selectedMonth, selectedAccountId]);
+  // ── Лимиты расходов (отдельно, по accountId + monthKey) ──────────────────
+  // Хранятся локально после загрузки с сервера для текущей пары (account, month)
+  const [categoryLimits, setCategoryLimits] = useState<CategoryLimitItem[]>([]);
+  const [limitsLoading, setLimitsLoading] = useState(false);
 
+  // ── Диалоги ───────────────────────────────────────────────────────────────
   const [showPlanDialog, setShowPlanDialog] = useState(false);
   const [showIncomeDialog, setShowIncomeDialog] = useState(false);
   const [showLimitDialog, setShowLimitDialog] = useState(false);
-  
-  // Состояние для редактирования лимита
   const [editingLimit, setEditingLimit] = useState<{ category: string; amount: number } | null>(null);
 
-  const currentPlanId = backendBudget?.id ?? null;
+  // ── Загрузка бюджета при смене месяца / аккаунта ─────────────────────────
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const budget = await api.budgets.getBudgetByMonth(selectedMonth, selectedAccountId);
+        setBackendBudget(budget);
+        // Синхронизируем лимиты из ответа сервера
+        setCategoryLimits(budget?.categoryLimits ?? []);
+      } catch (err) {
+        console.error("Error loading budget:", err);
+        setBackendBudget(null);
+        setCategoryLimits([]);
+      }
+    };
+    if (selectedAccountId) load();
+  }, [selectedMonth, selectedAccountId]);
 
-  const currentIncomeItems = useMemo(() => {
-    if (!backendBudget?.incomePlanItems) return [];
-    return backendBudget.incomePlanItems.map((item, index) => ({
-      id: `income-${index}`,
-      budgetPlanId: backendBudget.id!,
-      category: item.category,
-      plannedAmount: item.plannedAmount
-    }));
-  }, [backendBudget]);
-
-  const currentCategoryLimits = useMemo(() => {
-    if (!backendBudget?.categoryLimits) return [];
-    return backendBudget.categoryLimits.map((item, index) => ({
-      id: `limit-${index}`,
-      budgetPlanId: backendBudget.id!,
-      category: item.category,
-      limitAmount: item.limitAmount
-    }));
-  }, [backendBudget]);
-
+  // ── Транзакции за выбранный месяц по выбранному аккаунту ─────────────────
+  // Нормализуем тип транзакции в нижний регистр (бэкенд отдаёт EXPENSE/INCOME/TRANSFER)
   const monthTransactions = useMemo(() => {
     if (!selectedAccountId) return [];
-    
-    // Фильтруем транзакции по аккаунту (accountId или toAccountId)
-    return transactions.filter((tx) => 
-      tx.accountId === selectedAccountId || tx.toAccountId === selectedAccountId
-    ).filter((tx) => tx.date.startsWith(selectedMonth));
+    return transactions
+      .filter((tx) => tx.accountId === selectedAccountId || tx.toAccountId === selectedAccountId)
+      .filter((tx) => {
+        // Поддерживаем оба формата даты: "2026-03-15" и "2026-03-15T10:30:00.000Z"
+        const txMonth = tx.date.substring(0, 7); // берём первые 7 символов "2026-03"
+        return txMonth === selectedMonth;
+      })
+      .map((tx) => ({
+        ...tx,
+        // Нормализуем тип в нижний регистр на случай если бэкенд вернул EXPENSE/INCOME
+        type: (tx.type as string).toLowerCase() as typeof tx.type,
+      }));
   }, [transactions, selectedMonth, selectedAccountId]);
 
-  const selectedAccount = useMemo(() => {
-    if (!selectedAccountId) return accounts[0] || null;
-    return accounts.find((a) => a.id === selectedAccountId) || accounts[0] || null;
-  }, [accounts, selectedAccountId]);
+  const selectedAccount = useMemo(() =>
+    accounts.find((a) => a.id === selectedAccountId) || accounts[0] || null,
+    [accounts, selectedAccountId]
+  );
 
-  // Фактический доход: только транзакции где выбранный счёт - ПОЛУЧАТЕЛЬ (accountId)
+  const currency = selectedAccount?.currency || selectedCurrency || "USD";
+
+  // ── Фактический доход / расход ────────────────────────────────────────────
   const actualIncome = useMemo(() => {
-    let income = 0;
-    
-    // Обычные пополнения - только если это счёт получатель (accountId === selectedAccountId)
-    const regularIncome = monthTransactions
-      .filter((tx) => tx.type === "income" && tx.accountId === selectedAccountId && tx.category !== "Transfer")
-      .reduce((sum, tx) => sum + Number(tx.amount) || 0, 0);
-    income += regularIncome;
-    
-    // Переводы на выбранный аккаунт (старый формат - type: transfer)
+    const regular = monthTransactions
+      .filter((tx) => tx.type === "income" && tx.accountId === selectedAccountId && tx.category.toLowerCase() !== "transfer")
+      .reduce((sum, tx) => sum + Number(tx.amount), 0);
     const transfersIn = monthTransactions
       .filter((tx) => tx.type === "transfer" && tx.toAccountId === selectedAccountId)
-      .reduce((sum, tx) => sum + Number(tx.toAmount || tx.amount) || 0, 0);
-    income += transfersIn;
-    
-    // Входящие переводы (новый формат от бэкенда - type: income с category: Transfer)
+      .reduce((sum, tx) => sum + Number(tx.toAmount || tx.amount), 0);
     const incomingTransfers = monthTransactions
-      .filter((tx) => 
-        tx.type === "income" && 
-        tx.category === "Transfer" && 
-        tx.accountId === selectedAccountId
-      )
-      .reduce((sum, tx) => sum + Number(tx.amount) || 0, 0);
-    income += incomingTransfers;
-    
-    return income;
+      .filter((tx) => tx.type === "income" && tx.category.toLowerCase() === "transfer" && tx.accountId === selectedAccountId)
+      .reduce((sum, tx) => sum + Number(tx.amount), 0);
+    return regular + transfersIn + incomingTransfers;
   }, [monthTransactions, selectedAccountId]);
 
-  // Фактический расход: только транзакции где выбранный счёт - ОТПРАВИТЕЛЬ (accountId)
   const actualExpenses = useMemo(() => {
-    let expenses = 0;
-    
-    // Обычные траты - только если это счёт отправитель (accountId === selectedAccountId)
-    const regularExpenses = monthTransactions
-      .filter((tx) => tx.type === "expense" && tx.accountId === selectedAccountId && tx.category !== "Transfer")
-      .reduce((sum, tx) => sum + Number(tx.amount) || 0, 0);
-    expenses += regularExpenses;
-    
-    // Переводы с выбранного аккаунта (старый формат - type: transfer)
+    const regular = monthTransactions
+      .filter((tx) => tx.type === "expense" && tx.accountId === selectedAccountId && tx.category.toLowerCase() !== "transfer")
+      .reduce((sum, tx) => sum + Number(tx.amount), 0);
     const transfersOut = monthTransactions
       .filter((tx) => tx.type === "transfer" && tx.accountId === selectedAccountId)
-      .reduce((sum, tx) => sum + Number(tx.amount) || 0, 0);
-    expenses += transfersOut;
-    
-    // Исходящие переводы (новый формат от бэкенда - type: expense с category: Transfer)
-    const outgoingTransfers = monthTransactions
-      .filter((tx) => 
-        tx.type === "expense" && 
-        tx.category === "Transfer" && 
-        tx.accountId === selectedAccountId
-      )
-      .reduce((sum, tx) => sum + Number(tx.amount) || 0, 0);
-    expenses += outgoingTransfers;
-    
-    return expenses;
+      .reduce((sum, tx) => sum + Number(tx.amount), 0);
+    const outgoing = monthTransactions
+      .filter((tx) => tx.type === "expense" && tx.category.toLowerCase() === "transfer" && tx.accountId === selectedAccountId)
+      .reduce((sum, tx) => sum + Number(tx.amount), 0);
+    return regular + transfersOut + outgoing;
   }, [monthTransactions, selectedAccountId]);
 
+  // ── Расходы по категориям за месяц (для лимитов расходов) ────────────────
+  // monthTransactions уже отфильтрован по аккаунту и месяцу.
+  // Здесь берём только расходы (type === "expense"), исключая переводы.
+  // Тип нормализован в нижний регистр ещё при формировании monthTransactions.
+  const actualExpenseByCategory = useMemo(() => {
+    const result: Record<string, number> = {};
+    for (const tx of monthTransactions) {
+      const txType = String(tx.type).toLowerCase();
+      const txCategory = String(tx.category);
+      if (txType === "expense" && txCategory.toLowerCase() !== "transfer") {
+        // Нормализуем ключ: "Food & Dining" -> "foodDining", "foodDining" -> "foodDining"
+        const normalizedKey = normalizeCategoryKey(txCategory);
+        result[normalizedKey] = (result[normalizedKey] || 0) + Number(tx.amount);
+      }
+    }
+    return result;
+  }, [monthTransactions]);
+
+  // ── Доходы по категориям ──────────────────────────────────────────────────
   const actualIncomeByCategory = useMemo(() => {
     return monthTransactions
       .filter((tx) => tx.type === "income")
       .reduce<Record<string, number>>((acc, tx) => {
-        acc[tx.category] = (acc[tx.category] || 0) + tx.amount;
+        acc[tx.category] = (acc[tx.category] || 0) + Number(tx.amount);
         return acc;
       }, {});
   }, [monthTransactions]);
 
-  const actualExpenseByCategory = useMemo(() => {
-    return monthTransactions
-      .filter((tx) => tx.type === "expense")
-      .reduce<Record<string, number>>((acc, tx) => {
-        acc[tx.category] = (acc[tx.category] || 0) + tx.amount;
-        return acc;
-      }, {});
-  }, [monthTransactions]);
+  // ── Параметры бюджета (из backendBudget) ──────────────────────────────────
+  const totalIncomePlan = backendBudget?.totalIncomePlan ?? 0;
+  const totalExpensePlan = backendBudget?.totalExpensePlan ?? 0;
+  // "Плановый остаток" = из параметров бюджета
+  const plannedRemainder = totalIncomePlan - totalExpensePlan;
+  // "Фактический результат" = реальный доход - реальный расход
+  const actualNet = actualIncome - actualExpenses;
 
-  const totalPlannedIncome = useMemo(() => {
-    if (currentIncomeItems.length > 0) {
-      return currentIncomeItems.reduce((sum, item) => sum + item.plannedAmount, 0);
-    }
-    return backendBudget?.totalIncomePlan ?? 0;
-  }, [currentIncomeItems, backendBudget]);
-
-  const totalExpenseLimit = useMemo(() => {
-    if (currentCategoryLimits.length === 0) return backendBudget?.totalExpensePlan ?? 0;
-    return currentCategoryLimits.reduce((sum, item) => sum + item.limitAmount, 0);
-  }, [currentCategoryLimits, backendBudget]);
+  // ── Доходы по категориям (план) ───────────────────────────────────────────
+  const currentIncomeItems = useMemo(() => {
+    if (!backendBudget?.incomePlanItems) return [];
+    return backendBudget.incomePlanItems.map((item, i) => ({
+      id: `income-${i}`,
+      category: item.category,
+      plannedAmount: item.plannedAmount,
+    }));
+  }, [backendBudget]);
 
   const incomeRows = useMemo(() => {
     return incomeCategories.map((category) => {
-      const planned =
-        currentIncomeItems.find((item) => item.category === category)?.plannedAmount ?? 0;
+      const planned = currentIncomeItems.find((i) => i.category === category)?.plannedAmount ?? 0;
       const actual = actualIncomeByCategory[category] ?? 0;
-      const diff = actual - planned;
-
-      return {
-        category,
-        planned,
-        actual,
-        diff,
-      };
+      return { category, planned, actual, diff: actual - planned };
     });
   }, [currentIncomeItems, actualIncomeByCategory]);
 
+  // ── Строки таблицы "Лимиты расходов" ─────────────────────────────────────
+  // Только категории с лимитом. Траты ищем регистронезависимо —
+  // бэкенд может вернуть "food & dining" или "Food & Dining".
   const expenseRows = useMemo(() => {
-    return expenseCategories
-      .map((category) => {
-        const limit =
-          currentCategoryLimits.find((item) => item.category === category)?.limitAmount ?? 0;
-        const actual = actualExpenseByCategory[category] ?? 0;
+    return categoryLimits
+      .filter((limitItem) => limitItem.limitAmount > 0)
+      .map((limitItem) => {
+        // Нормализуем категорию лимита (старые записи могут быть "Food & Dining")
+        const limitCategory = normalizeCategoryKey(limitItem.category);
+
+        // actualExpenseByCategory уже нормализован, просто берём по ключу
+        const actual = actualExpenseByCategory[limitCategory] ?? 0;
+
+        const limit = limitItem.limitAmount;
         const remaining = limit - actual;
-        const progress = limit > 0 ? (actual / limit) * 100 : 0;
+        const progress = limit > 0 ? Math.min((actual / limit) * 100, 100) : 0;
 
-        return {
-          category,
-          limit,
-          actual,
-          remaining,
-          progress,
-        };
+        return { category: limitCategory, limit, actual, remaining, progress };
       })
-      .filter((row) => row.limit > 0 || row.actual > 0);
-  }, [currentCategoryLimits, actualExpenseByCategory]);
+      .sort((a, b) => b.progress - a.progress); // самые критичные первыми
+  }, [categoryLimits, actualExpenseByCategory]);
 
+  // ── Debug: выводим в консоль для диагностики ─────────────────────────────
+  useEffect(() => {
+    console.group('[Budget] Диагностика лимитов расходов');
+    console.log('selectedMonth:', selectedMonth);
+    console.log('selectedAccountId:', selectedAccountId);
+    console.log('Всего транзакций в контексте:', transactions.length);
+    console.log('monthTransactions (за месяц, по аккаунту):', monthTransactions.length, monthTransactions.map(tx => ({
+      id: tx.id, type: tx.type, category: tx.category, amount: tx.amount,
+      accountId: tx.accountId, date: tx.date
+    })));
+    console.log('actualExpenseByCategory:', actualExpenseByCategory);
+    console.log('categoryLimits:', categoryLimits);
+    console.log('expenseRows:', expenseRows);
+    console.groupEnd();
+  }, [monthTransactions, actualExpenseByCategory, categoryLimits, expenseRows, selectedMonth, selectedAccountId]);
+
+  // ── Навигация по месяцам ──────────────────────────────────────────────────
   const goPrevMonth = () => {
-    const [year, month] = selectedMonth.split("-").map(Number);
-    const nextDate = new Date(year, month - 2, 1);
-    setSelectedMonth(formatMonthKey(nextDate));
+    const [y, m] = selectedMonth.split("-").map(Number);
+    setSelectedMonth(formatMonthKey(new Date(y, m - 2, 1)));
   };
-
   const goNextMonth = () => {
-    const [year, month] = selectedMonth.split("-").map(Number);
-    const nextDate = new Date(year, month, 1);
-    setSelectedMonth(formatMonthKey(nextDate));
+    const [y, m] = selectedMonth.split("-").map(Number);
+    setSelectedMonth(formatMonthKey(new Date(y, m, 1)));
   };
 
+  // ── Сохранение "Параметры бюджета" ───────────────────────────────────────
   const savePlan = async (plannedIncome: number, plannedExpense: number): Promise<boolean> => {
     try {
-      // Если оба значения 0 и есть бюджет - удаляем его
       if (plannedIncome === 0 && plannedExpense === 0 && backendBudget?.id) {
         await api.budgets.deleteBudget(backendBudget.id);
         setBackendBudget(null);
         return true;
       }
-
-      // Сохраняем бюджет
-      const savedBudget = await api.budgets.saveBudget({
+      await api.budgets.saveBudget({
         id: backendBudget?.id,
         monthKey: selectedMonth,
         accountId: selectedAccountId || undefined,
         totalIncomePlan: plannedIncome,
-        totalExpensePlan: plannedExpense
+        totalExpensePlan: plannedExpense,
       });
-      
-      // После сохранения перезагружаем бюджет с сервера для получения актуальных данных
-      const refreshedBudget = await api.budgets.getBudgetByMonth(selectedMonth, selectedAccountId || undefined);
-      setBackendBudget(refreshedBudget);
+      const refreshed = await api.budgets.getBudgetByMonth(selectedMonth, selectedAccountId);
+      setBackendBudget(refreshed);
+      if (refreshed?.categoryLimits) setCategoryLimits(refreshed.categoryLimits);
       return true;
-    } catch (error) {
-      console.error('Error saving budget:', error);
+    } catch (err) {
+      console.error("Error saving plan:", err);
       return false;
     }
   };
 
+  // ── Сохранение дохода по категории ───────────────────────────────────────
   const handleSaveIncomeItem = async (category: string, amount: number): Promise<boolean> => {
     if (!backendBudget?.id) return false;
     try {
@@ -329,51 +333,118 @@ const Budget = () => {
         accountId: selectedAccountId || undefined,
         totalIncomePlan: backendBudget.totalIncomePlan || 0,
         totalExpensePlan: backendBudget.totalExpensePlan || 0,
-        incomePlanItems: [...(backendBudget.incomePlanItems || []).filter(i => i.category !== category), { category, plannedAmount: amount }]
+        incomePlanItems: [
+          ...(backendBudget.incomePlanItems || []).filter((i) => i.category !== category),
+          { category, plannedAmount: amount },
+        ],
       });
-      // Перезагружаем бюджет с сервера для получения актуальных данных
-      const refreshedBudget = await api.budgets.getBudgetByMonth(selectedMonth, selectedAccountId || undefined);
-      setBackendBudget(refreshedBudget);
+      const refreshed = await api.budgets.getBudgetByMonth(selectedMonth, selectedAccountId);
+      setBackendBudget(refreshed);
+      if (refreshed?.categoryLimits) setCategoryLimits(refreshed.categoryLimits);
       return true;
-    } catch (error) {
-      console.error('Error saving income item:', error);
+    } catch (err) {
+      console.error("Error saving income item:", err);
       return false;
     }
   };
 
+  // ── Сохранение лимита расходов ────────────────────────────────────────────
+  // Лимиты НЕ связаны с "Параметрами бюджета".
+  // Если BudgetPlan не существует — создаётся автоматически как контейнер.
   const handleSaveExpenseLimit = async (category: string, amount: number): Promise<boolean> => {
-    if (!backendBudget?.id) return false;
+    setLimitsLoading(true);
     try {
-      // Если редактируем существующий лимит - используем отдельный API
-      const existingLimit = backendBudget.categoryLimits?.find(c => c.category === category);
-      if (existingLimit) {
-        await api.budgets.updateCategoryLimit(backendBudget.id, category, amount);
-      } else {
-        await api.budgets.addCategoryLimit(backendBudget.id, category, amount);
+      let budgetId = backendBudget?.id;
+
+      // Создаём budget-контейнер если его нет
+      if (!budgetId) {
+        const newBudget = await api.budgets.saveBudget({
+          monthKey: selectedMonth,
+          accountId: selectedAccountId || undefined,
+          totalIncomePlan: 0,
+          totalExpensePlan: 0,
+        });
+        if (!newBudget?.id) return false;
+        budgetId = newBudget.id;
+        setBackendBudget(newBudget);
       }
-      
-      // Перезагружаем бюджет с сервера для получения актуальных данных
-      const refreshedBudget = await api.budgets.getBudgetByMonth(selectedMonth, selectedAccountId || undefined);
-      setBackendBudget(refreshedBudget);
+
+      // Ищем существующий лимит с нормализацией — бэкенд мог сохранить старое
+      // название ("Food & Dining"), а category сюда приходит уже нормализованным ("foodDining")
+      const exists = categoryLimits.find(
+        (l) => normalizeCategoryKey(l.category) === normalizeCategoryKey(category)
+      );
+      if (exists) {
+        // При обновлении передаём оригинальный ключ как он хранится на бэкенде
+        await api.budgets.updateCategoryLimit(budgetId!, exists.category, amount);
+      } else {
+        await api.budgets.addCategoryLimit(budgetId!, category, amount);
+      }
+
+      // Обновляем лимиты локально сразу (оптимистично)
+      // Фильтруем с нормализацией — убираем и старый "Food & Dining" и новый "foodDining"
+      const updatedLimits = [
+        ...categoryLimits.filter(
+          (l) => normalizeCategoryKey(l.category) !== normalizeCategoryKey(category)
+        ),
+        { category: exists ? exists.category : category, limitAmount: amount },
+      ];
+      setCategoryLimits(updatedLimits);
+
+      // Синхронизируем с сервером
+      const refreshed = await api.budgets.getBudgetByMonth(selectedMonth, selectedAccountId);
+      if (refreshed?.categoryLimits) setCategoryLimits(refreshed.categoryLimits);
+      if (refreshed) setBackendBudget(refreshed);
+
       setEditingLimit(null);
       return true;
-    } catch (error) {
-      console.error('Error saving expense limit:', error);
+    } catch (err) {
+      console.error("Error saving expense limit:", err);
       return false;
+    } finally {
+      setLimitsLoading(false);
     }
   };
 
+  // ── Удаление лимита расходов ──────────────────────────────────────────────
   const handleDeleteExpenseLimit = async (category: string): Promise<boolean> => {
     if (!backendBudget?.id) return false;
+    setLimitsLoading(true);
     try {
       await api.budgets.deleteCategoryLimit(backendBudget.id, category);
-      // Перезагружаем бюджет с сервера для получения актуальных данных
-      const refreshedBudget = await api.budgets.getBudgetByMonth(selectedMonth, selectedAccountId || undefined);
-      setBackendBudget(refreshedBudget);
+
+      const updatedLimits = categoryLimits.filter((l) => l.category !== category);
+      setCategoryLimits(updatedLimits);
+
+      const refreshed = await api.budgets.getBudgetByMonth(selectedMonth, selectedAccountId);
+
+      if (refreshed) {
+        setBackendBudget(refreshed);
+        setCategoryLimits(refreshed.categoryLimits ?? []);
+
+        // Удаляем budget если он совсем пустой
+        const isEmpty =
+          (!refreshed.categoryLimits || refreshed.categoryLimits.length === 0) &&
+          (!refreshed.incomePlanItems || refreshed.incomePlanItems.length === 0) &&
+          (refreshed.totalIncomePlan ?? 0) === 0 &&
+          (refreshed.totalExpensePlan ?? 0) === 0;
+
+        if (isEmpty) {
+          await api.budgets.deleteBudget(refreshed.id!);
+          setBackendBudget(null);
+          setCategoryLimits([]);
+        }
+      } else {
+        setBackendBudget(null);
+        setCategoryLimits([]);
+      }
+
       return true;
-    } catch (error) {
-      console.error('Error deleting expense limit:', error);
+    } catch (err) {
+      console.error("Error deleting expense limit:", err);
       return false;
+    } finally {
+      setLimitsLoading(false);
     }
   };
 
@@ -382,60 +453,41 @@ const Budget = () => {
     setShowLimitDialog(true);
   };
 
-  const projectedSavings = totalPlannedIncome - totalExpenseLimit;
-  const actualNet = actualIncome - actualExpenses;
-
+  // ─────────────────────────────────────────────────────────────────────────
   return (
     <div className="space-y-4 sm:space-y-6 animate-fade-in">
+      {/* Header */}
       <div className="flex items-center gap-2 sm:gap-3">
         <button
           onClick={() => navigate(-1)}
           className="w-8 h-8 sm:w-9 sm:h-9 rounded-full secondary-bg flex items-center justify-center"
         >
-          <ArrowLeft size={16} sm:size={18} />
+          <ArrowLeft size={16} />
         </button>
         <div>
           <h1 className="text-lg sm:text-xl font-bold">{t("budget.title")}</h1>
-          <p className="text-[10px] sm:text-xs text-muted-foreground">
-            {t("budget.subtitle")}
-          </p>
+          <p className="text-[10px] sm:text-xs text-muted-foreground">{t("budget.subtitle")}</p>
         </div>
       </div>
 
-      {/* Month switcher */}
+      {/* Month + Account selector */}
       <div className="rounded-2xl sm:rounded-3xl border border-border/30 p-3 sm:p-4 card-container shadow-sm">
         <div className="flex items-center justify-between">
-          <button
-            onClick={goPrevMonth}
-            className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl secondary-bg flex items-center justify-center"
-          >
-            <ChevronLeft size={16} sm:size={18} />
+          <button onClick={goPrevMonth} className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl secondary-bg flex items-center justify-center">
+            <ChevronLeft size={16} />
           </button>
-
           <div className="text-center">
-            <p className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wider">
-              {t("budget.period")}
-            </p>
-            <p className="text-base sm:text-lg font-bold capitalize">
-              {formatMonthLabel(selectedMonth, language)}
-            </p>
+            <p className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wider">{t("budget.period")}</p>
+            <p className="text-base sm:text-lg font-bold capitalize">{formatMonthLabel(selectedMonth, language)}</p>
           </div>
-
-          <button
-            onClick={goNextMonth}
-            className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl secondary-bg flex items-center justify-center"
-          >
-            <ChevronRight size={16} sm:size={18} />
+          <button onClick={goNextMonth} className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl secondary-bg flex items-center justify-center">
+            <ChevronRight size={16} />
           </button>
         </div>
 
-        {/* Account selector */}
         <div className="mt-3 sm:mt-4 pt-3 sm:pt-4 border-t border-border/30">
           <p className="text-[10px] sm:text-xs text-muted-foreground mb-1.5 sm:mb-2">{t("budget.accountCard")}</p>
-          <Select
-            value={selectedAccountId}
-            onValueChange={(value) => setSelectedAccountId(value)}
-          >
+          <Select value={selectedAccountId} onValueChange={setSelectedAccountId}>
             <SelectTrigger className="w-full rounded-xl bg-secondary dark:bg-[rgba(28,32,44,0.3)] border-0 px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm focus:ring-2 focus:ring-primary outline-none">
               <SelectValue placeholder={t("budget.selectAccount")} />
             </SelectTrigger>
@@ -444,9 +496,7 @@ const Budget = () => {
                 <SelectItem key={account.id} value={account.id}>
                   <div className="flex items-center justify-between w-full">
                     <span>{account.name}</span>
-                    <span className="text-muted-foreground text-xs ml-2">
-                      {account.currency}
-                    </span>
+                    <span className="text-muted-foreground text-xs ml-2">{account.currency}</span>
                   </div>
                 </SelectItem>
               ))}
@@ -455,80 +505,83 @@ const Budget = () => {
         </div>
       </div>
 
-      {/* Overview */}
+      {/* ── Overview карточки ─────────────────────────────────────────────── */}
+      {/* "Лимит расходов" и "Плановый остаток" берутся из Параметров бюджета */}
       <div className="grid grid-cols-2 gap-2 sm:gap-3">
+        {/* План дохода — из Параметров бюджета */}
         <div className="rounded-2xl sm:rounded-3xl border border-border/30 p-3 sm:p-4 card-container shadow-sm">
           <p className="text-[10px] sm:text-xs text-muted-foreground mb-0.5 sm:mb-1">{t("budget.incomePlan")}</p>
-          <p className="text-base sm:text-lg font-bold text-success">
-            {formatMoney(totalPlannedIncome, selectedAccount?.currency || selectedCurrency || "USD")}
-          </p>
+          <p className="text-base sm:text-lg font-bold text-success">{formatMoney(totalIncomePlan, currency)}</p>
         </div>
 
+        {/* Факт дохода */}
         <div className="rounded-2xl sm:rounded-3xl border border-border/30 p-3 sm:p-4 card-container shadow-sm">
           <p className="text-[10px] sm:text-xs text-muted-foreground mb-0.5 sm:mb-1">{t("budget.incomeFact")}</p>
-          <p className="text-base sm:text-lg font-bold text-success">
-            {formatMoney(actualIncome, selectedAccount?.currency || selectedCurrency || "USD")}
-          </p>
+          <p className="text-base sm:text-lg font-bold text-success">{formatMoney(actualIncome, currency)}</p>
         </div>
 
+        {/* Лимит расходов — из Параметров бюджета (totalExpensePlan) */}
         <div className="rounded-2xl sm:rounded-3xl border border-border/30 p-3 sm:p-4 card-container shadow-sm">
           <p className="text-[10px] sm:text-xs text-muted-foreground mb-0.5 sm:mb-1">{t("budget.expenseLimit")}</p>
-          <p className="text-base sm:text-lg font-bold text-warning">
-            {formatMoney(totalExpenseLimit, selectedAccount?.currency || selectedCurrency || "USD")}
-          </p>
+          <p className="text-base sm:text-lg font-bold text-warning">{formatMoney(totalExpensePlan, currency)}</p>
         </div>
 
+        {/* Факт расходов */}
         <div className="rounded-2xl sm:rounded-3xl border border-border/30 p-3 sm:p-4 card-container shadow-sm">
           <p className="text-[10px] sm:text-xs text-muted-foreground mb-0.5 sm:mb-1">{t("budget.expenseFact")}</p>
-          <p className="text-base sm:text-lg font-bold text-destructive">
-            {formatMoney(actualExpenses, selectedAccount?.currency || selectedCurrency || "USD")}
-          </p>
+          <p className="text-base sm:text-lg font-bold text-destructive">{formatMoney(actualExpenses, currency)}</p>
         </div>
 
+        {/* Плановый остаток — из Параметров бюджета */}
         <div className="rounded-2xl sm:rounded-3xl border border-border/30 p-3 sm:p-4 card-container shadow-sm">
           <p className="text-[10px] sm:text-xs text-muted-foreground mb-0.5 sm:mb-1">{t("budget.plannedRemainder")}</p>
-          <p className="text-base sm:text-lg font-bold">
-            {formatMoney(projectedSavings, selectedAccount?.currency || selectedCurrency || "USD")}
-          </p>
+          <p className="text-base sm:text-lg font-bold">{formatMoney(plannedRemainder, currency)}</p>
         </div>
 
+        {/* Фактический результат */}
         <div className="rounded-2xl sm:rounded-3xl border border-border/30 p-3 sm:p-4 card-container shadow-sm">
           <p className="text-[10px] sm:text-xs text-muted-foreground mb-0.5 sm:mb-1">{t("budget.actualResult")}</p>
           <p className={`text-base sm:text-lg font-bold ${actualNet >= 0 ? "text-success" : "text-destructive"}`}>
-            {formatMoney(actualNet, selectedAccount?.currency || selectedCurrency || "USD")}
+            {formatMoney(actualNet, currency)}
           </p>
         </div>
       </div>
 
-      {/* Budget setup */}
+      {/* ── Параметры бюджета ─────────────────────────────────────────────── */}
+      {/* Меняет: План дохода, Лимит расходов, Плановый остаток */}
       <div className="rounded-2xl sm:rounded-3xl border border-border/30 p-3 sm:p-4 card-container shadow-sm">
         <div className="flex items-center justify-between mb-2 sm:mb-3">
           <div className="flex items-center gap-1.5 sm:gap-2">
-            <Calculator size={16} sm:size={18} className="text-primary" />
+            <Calculator size={16} className="text-primary" />
             <h2 className="section-title">{t("budget.budgetParameters")}</h2>
           </div>
-
           <button
             onClick={() => setShowPlanDialog(true)}
             className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-primary flex items-center justify-center text-primary-foreground"
           >
-            <Pencil size={14} sm:size={16} />
+            <Pencil size={14} />
           </button>
         </div>
 
         <div className="space-y-1.5 sm:space-y-2 text-xs sm:text-sm">
           <div className="flex items-center justify-between">
             <span className="text-muted-foreground">{t("budget.planIncome")}</span>
-            <span className="font-semibold">{formatMoney(totalPlannedIncome, selectedAccount?.currency || selectedCurrency || "USD")}</span>
+            <span className="font-semibold">{formatMoney(totalIncomePlan, currency)}</span>
           </div>
           <div className="flex items-center justify-between">
             <span className="text-muted-foreground">{t("budget.planExpenses")}</span>
-            <span className="font-semibold">{formatMoney(totalExpenseLimit, selectedAccount?.currency || selectedCurrency || "USD")}</span>
+            <span className="font-semibold">{formatMoney(totalExpensePlan, currency)}</span>
+          </div>
+          <div className="flex items-center justify-between pt-1 border-t border-border/20">
+            <span className="text-muted-foreground">{t("budget.plannedRemainder")}</span>
+            <span className={`font-semibold ${plannedRemainder >= 0 ? "text-success" : "text-destructive"}`}>
+              {formatMoney(plannedRemainder, currency)}
+            </span>
           </div>
         </div>
       </div>
 
-      {/* Income plan */}
+      {/* ── Доходы по категориям ──────────────────────────────────────────── */}
       <div className="rounded-2xl sm:rounded-3xl border border-border/30 p-3 sm:p-4 card-container shadow-sm">
         <div className="flex items-center justify-between mb-2 sm:mb-3">
           <h2 className="section-title">{t("budget.incomePlanByCategory")}</h2>
@@ -536,7 +589,7 @@ const Budget = () => {
             onClick={() => setShowIncomeDialog(true)}
             className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-primary flex items-center justify-center text-primary-foreground"
           >
-            <Plus size={14} sm:size={16} />
+            <Plus size={14} />
           </button>
         </div>
 
@@ -547,37 +600,38 @@ const Budget = () => {
               className="rounded-xl sm:rounded-2xl border border-border/30 px-3 sm:px-4 py-2.5 sm:py-3 flex items-center justify-between gap-2"
             >
               <div className="min-w-0 flex-1">
-                <p className="text-xs sm:text-sm font-medium truncate">{row.category}</p>
+                <p className="text-xs sm:text-sm font-medium truncate">{getCategoryLabel(row.category, t)}</p>
                 <p className="text-[10px] sm:text-xs text-muted-foreground truncate">
-                  {t("budget.limit")}: {formatMoney(row.planned, selectedAccount?.currency || selectedCurrency || "USD")} · {t("budget.fact")}:{" "}
-                  {formatMoney(row.actual, selectedAccount?.currency || selectedCurrency || "USD")}
+                  {t("budget.limit")}: {formatMoney(row.planned, currency)} · {t("budget.fact")}: {formatMoney(row.actual, currency)}
                 </p>
               </div>
-
-              <p
-                className={`text-xs sm:text-sm font-semibold shrink-0 ${
-                  row.diff >= 0 ? "text-success" : "text-destructive"
-                }`}
-              >
-                {row.diff >= 0 ? "+" : ""}
-                {formatMoney(row.diff, selectedAccount?.currency || selectedCurrency || "USD")}
+              <p className={`text-xs sm:text-sm font-semibold shrink-0 ${row.diff >= 0 ? "text-success" : "text-destructive"}`}>
+                {row.diff >= 0 ? "+" : ""}{formatMoney(row.diff, currency)}
               </p>
             </div>
           ))}
         </div>
       </div>
 
-      {/* Expense limits */}
+      {/* ── Лимиты расходов ───────────────────────────────────────────────── */}
+      {/* ПОЛНОСТЬЮ отдельная таблица — не связана с Параметрами бюджета.     */}
+      {/* Показывает реальные траты за месяц и сравнивает с установленным лимитом. */}
       <div className="rounded-2xl sm:rounded-3xl border border-border/30 p-3 sm:p-4 card-container shadow-sm">
-        <div className="flex items-center justify-between mb-2 sm:mb-3">
+        <div className="flex items-center justify-between mb-1 sm:mb-1.5">
           <h2 className="section-title">{t("budget.expenseLimits")}</h2>
           <button
-            onClick={() => setShowLimitDialog(true)}
+            onClick={() => { setEditingLimit(null); setShowLimitDialog(true); }}
             className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-primary flex items-center justify-center text-primary-foreground"
+            disabled={limitsLoading}
           >
-            <Plus size={14} sm:size={16} />
+            <Plus size={14} />
           </button>
         </div>
+
+        {/* Подзаголовок с картой и месяцем */}
+        <p className="text-[10px] text-muted-foreground mb-2 sm:mb-3">
+          {selectedAccount?.name} · {formatMonthLabel(selectedMonth, language)}
+        </p>
 
         <div className="space-y-2 sm:space-y-3">
           {expenseRows.length === 0 ? (
@@ -587,63 +641,82 @@ const Budget = () => {
           ) : (
             expenseRows.map((row) => (
               <div key={row.category} className="rounded-xl sm:rounded-2xl border border-border/30 p-3 sm:p-4">
-                <div className="flex items-center justify-between mb-1.5 sm:mb-2">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="text-xs sm:text-sm font-medium truncate">{row.category}</p>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <button className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-secondary flex items-center justify-center shrink-0">
-                            <MoreVertical size={12} sm:size={14} />
-                          </button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => handleEditExpenseLimit(row.category, row.limit)}>
-                            <Pencil size={14} className="mr-2" />
-                            Редактировать
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() => handleDeleteExpenseLimit(row.category)}
-                            className="text-destructive focus:text-destructive"
-                          >
-                            <Trash2 size={14} className="mr-2" />
-                            Удалить
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
-                    <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5 sm:mt-1">
-                      Лимит: {formatMoney(row.limit, selectedAccount?.currency || selectedCurrency || "USD")}
-                    </p>
-                    <p className="text-[10px] sm:text-xs text-muted-foreground">
-                      Факт: {formatMoney(row.actual, selectedAccount?.currency || selectedCurrency || "USD")}
-                    </p>
+                {/* Заголовок строки */}
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-xs sm:text-sm font-medium">{getCategoryLabel(row.category, t)}</p>
+                  <div className="flex items-center gap-2">
+                    {/* Процент использования */}
+                    <span className={`text-[10px] sm:text-xs font-semibold ${
+                      row.progress >= 100 ? "text-destructive" :
+                      row.progress >= 80 ? "text-warning" : "text-success"
+                    }`}>
+                      {row.limit > 0 ? Math.round(row.progress) : 0}%
+                    </span>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-secondary flex items-center justify-center shrink-0">
+                          <MoreVertical size={12} />
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => handleEditExpenseLimit(row.category, row.limit)}>
+                          <Pencil size={14} className="mr-2" />
+                          Редактировать
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => handleDeleteExpenseLimit(row.category)}
+                          className="text-destructive focus:text-destructive"
+                        >
+                          <Trash2 size={14} className="mr-2" />
+                          Удалить
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
                 </div>
 
-                <div className="w-full h-1.5 sm:h-2 rounded-full bg-secondary overflow-hidden">
+                {/* Прогресс-бар */}
+                <div className="w-full h-2 sm:h-2.5 rounded-full bg-secondary overflow-hidden mb-2">
                   <div
-                    className={`h-full transition-all ${getStatusColor(row.progress)}`}
+                    className={`h-full transition-all duration-300 ${getStatusColor(row.progress)}`}
                     style={{ width: `${Math.min(row.progress, 100)}%` }}
                   />
                 </div>
 
-                <p className="text-[9px] sm:text-[10px] text-muted-foreground mt-1">
-                  Использовано {row.limit > 0 ? Math.round(row.progress) : 0}%
-                </p>
+                {/* Суммы: потрачено / лимит */}
+                <div className="flex items-center justify-between text-[10px] sm:text-xs text-muted-foreground">
+                  <span>
+                    Потрачено: <span className={`font-semibold ${row.progress >= 100 ? "text-destructive" : "text-foreground"}`}>
+                      {formatMoney(row.actual, currency)}
+                    </span>
+                  </span>
+                  <span>
+                    Лимит: <span className="font-semibold text-foreground">{formatMoney(row.limit, currency)}</span>
+                  </span>
+                </div>
+
+                {/* Остаток или перерасход */}
+                {row.limit > 0 && (
+                  <div className="mt-1 text-[10px] sm:text-xs">
+                    {row.remaining >= 0 ? (
+                      <span className="text-success">Остаток: {formatMoney(row.remaining, currency)}</span>
+                    ) : (
+                      <span className="text-destructive">Перерасход: {formatMoney(Math.abs(row.remaining), currency)}</span>
+                    )}
+                  </div>
+                )}
               </div>
             ))
           )}
         </div>
       </div>
 
-
-      {/* Dialogs */}
+      {/* ── Диалоги ───────────────────────────────────────────────────────── */}
       <PlanDialog
         open={showPlanDialog}
         onOpenChange={setShowPlanDialog}
-        initialIncome={backendBudget?.totalIncomePlan ?? 0}
-        initialExpense={backendBudget?.totalExpensePlan ?? 0}
+        initialIncome={totalIncomePlan}
+        initialExpense={totalExpensePlan}
         onSave={savePlan}
       />
 
@@ -660,20 +733,19 @@ const Budget = () => {
           setShowLimitDialog(open);
           if (!open) setEditingLimit(null);
         }}
-        expenseLimits={currentCategoryLimits}
+        categoryLimits={categoryLimits}
         editingLimit={editingLimit}
+        actualExpensesByCategory={actualExpenseByCategory}
+        currency={currency}
         onSave={handleSaveExpenseLimit}
       />
     </div>
   );
 };
 
+// ─── PlanDialog — Параметры бюджета ──────────────────────────────────────────
 const PlanDialog = ({
-  open,
-  onOpenChange,
-  initialIncome,
-  initialExpense,
-  onSave,
+  open, onOpenChange, initialIncome, initialExpense, onSave,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -682,29 +754,21 @@ const PlanDialog = ({
   onSave: (income: number, expense: number) => Promise<boolean>;
 }) => {
   const { t } = useTranslation();
-  const [income, setIncome] = useState(initialIncome.toString());
-  const [expense, setExpense] = useState(initialExpense.toString());
+  const [income, setIncome] = useState("");
+  const [expense, setExpense] = useState("");
   const [isSaving, setIsSaving] = useState(false);
 
-  // Обновляем значения при изменении props или открытии диалога
   useEffect(() => {
     setIncome(initialIncome > 0 ? initialIncome.toString() : "");
     setExpense(initialExpense > 0 ? initialExpense.toString() : "");
-  }, [initialIncome, initialExpense]);
+  }, [initialIncome, initialExpense, open]);
 
   const handleSave = async () => {
     if (isSaving) return;
     setIsSaving(true);
-    const incomeValue = Number(income || 0);
-    const expenseValue = Number(expense || 0);
-    
-    // Закрываем диалог сразу и затем выполняем сохранение
     onOpenChange(false);
-    
     try {
-      await onSave(incomeValue, expenseValue);
-    } catch (error) {
-      console.error('Error saving:', error);
+      await onSave(Number(income || 0), Number(expense || 0));
     } finally {
       setIsSaving(false);
     }
@@ -716,37 +780,29 @@ const PlanDialog = ({
         <DialogHeader>
           <DialogTitle>{t("budget.budgetParameters")}</DialogTitle>
         </DialogHeader>
-
         <div className="space-y-4">
           <div>
-            <label className="text-xs font-medium text-muted-foreground mb-1 block">
-              {t("budget.incomePlan")}
-            </label>
+            <label className="text-xs font-medium text-muted-foreground mb-1 block">{t("budget.incomePlan")}</label>
             <input
               type="number"
               value={income}
               onChange={(e) => setIncome(e.target.value)}
+              placeholder="0"
               className="w-full rounded-2xl input-bg px-4 py-3 text-sm outline-none"
             />
           </div>
-
           <div>
-            <label className="text-xs font-medium text-muted-foreground mb-1 block">
-              {t("budget.planExpenses")}
-            </label>
+            <label className="text-xs font-medium text-muted-foreground mb-1 block">{t("budget.planExpenses")}</label>
             <input
               type="number"
               value={expense}
               onChange={(e) => setExpense(e.target.value)}
+              placeholder="0"
               className="w-full rounded-2xl input-bg px-4 py-3 text-sm outline-none"
             />
           </div>
-
-          <button
-            onClick={handleSave}
-            className="w-full py-3 rounded-2xl bg-primary text-primary-foreground font-semibold text-sm"
-          >
-            Сохранить
+          <button onClick={handleSave} className="w-full py-3 rounded-2xl bg-primary text-primary-foreground font-semibold text-sm">
+            {t("budget.save")}
           </button>
         </div>
       </DialogContent>
@@ -754,11 +810,9 @@ const PlanDialog = ({
   );
 };
 
+// ─── IncomeDialog ─────────────────────────────────────────────────────────────
 const IncomeDialog = ({
-  open,
-  onOpenChange,
-  incomeItems,
-  onSave,
+  open, onOpenChange, incomeItems, onSave,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -770,31 +824,17 @@ const IncomeDialog = ({
   const [amount, setAmount] = useState("");
   const [isSaving, setIsSaving] = useState(false);
 
-  // Обновляем значения при изменении items
   useEffect(() => {
-    const existingItem = incomeItems.find(item => item.category === category);
-    setAmount(existingItem ? existingItem.plannedAmount.toString() : "");
+    const item = incomeItems.find((i) => i.category === category);
+    setAmount(item ? item.plannedAmount.toString() : "");
   }, [incomeItems, category]);
-
-  const handleCategoryChange = (newCategory: string) => {
-    setCategory(newCategory);
-    const existingItem = incomeItems.find(item => item.category === newCategory);
-    setAmount(existingItem ? existingItem.plannedAmount.toString() : "");
-  };
 
   const handleSave = async () => {
     if (!amount || Number(amount) < 0 || isSaving) return;
     setIsSaving(true);
-    const categoryValue = category;
-    const amountValue = Number(amount);
-    
-    // Закрываем диалог сразу и затем выполняем сохранение
     onOpenChange(false);
-    
     try {
-      await onSave(categoryValue, amountValue);
-    } catch (error) {
-      console.error('Error saving income item:', error);
+      await onSave(category, Number(amount));
     } finally {
       setIsSaving(false);
     }
@@ -806,41 +846,32 @@ const IncomeDialog = ({
         <DialogHeader>
           <DialogTitle>{t("budget.incomePlanByCategoryTitle")}</DialogTitle>
         </DialogHeader>
-
         <div className="space-y-4">
           <div>
-            <label className="text-xs font-medium text-muted-foreground mb-1 block">
-              {t("budget.category")}
-            </label>
+            <label className="text-xs font-medium text-muted-foreground mb-1 block">{t("budget.category")}</label>
             <select
               value={category}
-              onChange={(e) => handleCategoryChange(e.target.value)}
+              onChange={(e) => {
+                setCategory(e.target.value);
+                const item = incomeItems.find((i) => i.category === e.target.value);
+                setAmount(item ? item.plannedAmount.toString() : "");
+              }}
               className="w-full rounded-2xl input-bg px-4 py-3 text-sm outline-none"
             >
-              {incomeCategories.map((cat) => (
-                <option key={cat} value={cat}>
-                  {cat}
-                </option>
-              ))}
+              {incomeCategories.map((cat) => <option key={cat} value={cat}>{getCategoryLabel(cat, t)}</option>)}
             </select>
           </div>
-
           <div>
-            <label className="text-xs font-medium text-muted-foreground mb-1 block">
-              {t("budget.amount")}
-            </label>
+            <label className="text-xs font-medium text-muted-foreground mb-1 block">{t("budget.amount")}</label>
             <input
               type="number"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
+              placeholder="0"
               className="w-full rounded-2xl input-bg px-4 py-3 text-sm outline-none"
             />
           </div>
-
-          <button
-            onClick={handleSave}
-            className="w-full py-3 rounded-2xl bg-primary text-primary-foreground font-semibold text-sm"
-          >
+          <button onClick={handleSave} className="w-full py-3 rounded-2xl bg-primary text-primary-foreground font-semibold text-sm">
             {t("budget.save")}
           </button>
         </div>
@@ -849,25 +880,25 @@ const IncomeDialog = ({
   );
 };
 
+// ─── ExpenseLimitDialog ───────────────────────────────────────────────────────
 const ExpenseLimitDialog = ({
-  open,
-  onOpenChange,
-  expenseLimits,
-  editingLimit,
-  onSave,
+  open, onOpenChange, categoryLimits, editingLimit,
+  actualExpensesByCategory, currency, onSave,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  expenseLimits: { category: string; limitAmount: number }[];
+  categoryLimits: CategoryLimitItem[];
   editingLimit?: { category: string; amount: number } | null;
+  actualExpensesByCategory?: Record<string, number>;
+  currency?: string;
   onSave: (category: string, amount: number) => Promise<boolean>;
 }) => {
   const { t } = useTranslation();
   const [category, setCategory] = useState(expenseCategories[0]);
   const [amount, setAmount] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  // Обновляем значения при изменении editingLimit или открытии диалога
   useEffect(() => {
     if (editingLimit) {
       setCategory(editingLimit.category);
@@ -876,27 +907,26 @@ const ExpenseLimitDialog = ({
       setCategory(expenseCategories[0]);
       setAmount("");
     }
+    setError(null);
   }, [editingLimit, open]);
 
-  const handleCategoryChange = (newCategory: string) => {
-    setCategory(newCategory);
-    const existingItem = expenseLimits.find(item => item.category === newCategory);
-    setAmount(existingItem ? existingItem.limitAmount.toString() : "");
-  };
+  const activeCategory = editingLimit ? editingLimit.category : category;
+  const actualSpent = actualExpensesByCategory?.[activeCategory] ?? 0;
+  const existingLimit = categoryLimits.find((l) => l.category === activeCategory);
 
   const handleSave = async () => {
-    if (!amount || Number(amount) < 0 || isSaving) return;
+    if (amount === "") { setError("Введите сумму лимита"); return; }
+    const num = Number(amount);
+    if (isNaN(num) || num < 0) { setError("Введите корректную сумму"); return; }
+    if (isSaving) return;
     setIsSaving(true);
-    const categoryValue = category;
-    const amountValue = Number(amount);
-    
-    // Закрываем диалог сразу и затем выполняем сохранение
-    onOpenChange(false);
-    
+    setError(null);
     try {
-      await onSave(categoryValue, amountValue);
-    } catch (error) {
-      console.error('Error saving expense limit:', error);
+      const ok = await onSave(activeCategory, num);
+      if (ok) { onOpenChange(false); }
+      else { setError("Не удалось сохранить лимит"); }
+    } catch {
+      setError("Произошла ошибка при сохранении");
     } finally {
       setIsSaving(false);
     }
@@ -908,43 +938,69 @@ const ExpenseLimitDialog = ({
         <DialogHeader>
           <DialogTitle>{t("budget.expenseLimitByCategoryTitle")}</DialogTitle>
         </DialogHeader>
-
         <div className="space-y-4">
           <div>
-            <label className="text-xs font-medium text-muted-foreground mb-1 block">
-              {t("budget.category")}
-            </label>
+            <label className="text-xs font-medium text-muted-foreground mb-1 block">{t("budget.category")}</label>
             <select
-              value={editingLimit ? editingLimit.category : category}
-              onChange={(e) => handleCategoryChange(e.target.value)}
+              value={activeCategory}
+              onChange={(e) => {
+                if (editingLimit) return;
+                setCategory(e.target.value);
+                const ex = categoryLimits.find((l) => l.category === e.target.value);
+                setAmount(ex ? ex.limitAmount.toString() : "");
+              }}
               className="w-full rounded-2xl input-bg px-4 py-3 text-sm outline-none"
               disabled={!!editingLimit}
             >
-              {expenseCategories.map((cat) => (
-                <option key={cat} value={cat}>
-                  {cat}
-                </option>
-              ))}
+              {expenseCategories.map((cat) => <option key={cat} value={cat}>{getCategoryLabel(cat, t)}</option>)}
             </select>
           </div>
 
           <div>
-            <label className="text-xs font-medium text-muted-foreground mb-1 block">
-              {t("budget.limit")}
-            </label>
+            <label className="text-xs font-medium text-muted-foreground mb-1 block">{t("budget.limit")}</label>
             <input
               type="number"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
+              placeholder="0"
               className="w-full rounded-2xl input-bg px-4 py-3 text-sm outline-none"
             />
+
+            {/* Информация о фактических тратах */}
+            {currency && (
+              <div className="mt-2 rounded-xl bg-secondary/50 p-2.5 space-y-1">
+                <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+                  <span>Потрачено в этом месяце:</span>
+                  <span className="font-semibold text-foreground">{formatMoney(actualSpent, currency)}</span>
+                </div>
+                {existingLimit && (
+                  <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+                    <span>Текущий лимит:</span>
+                    <span className="font-semibold text-foreground">{formatMoney(existingLimit.limitAmount, currency)}</span>
+                  </div>
+                )}
+                {amount && Number(amount) > 0 && (
+                  <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+                    <span>Остаток при новом лимите:</span>
+                    <span className={`font-semibold ${Number(amount) - actualSpent >= 0 ? "text-success" : "text-destructive"}`}>
+                      {formatMoney(Number(amount) - actualSpent, currency)}
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
+
+          {error && (
+            <div className="text-destructive text-xs bg-destructive/10 p-2 rounded-lg">{error}</div>
+          )}
 
           <button
             onClick={handleSave}
-            className="w-full py-3 rounded-2xl bg-primary text-primary-foreground font-semibold text-sm"
+            disabled={isSaving}
+            className="w-full py-3 rounded-2xl bg-primary text-primary-foreground font-semibold text-sm disabled:opacity-50"
           >
-            {t("budget.save")}
+            {isSaving ? "Сохранение..." : t("budget.save")}
           </button>
         </div>
       </DialogContent>

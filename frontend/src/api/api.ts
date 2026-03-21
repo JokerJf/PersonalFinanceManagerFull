@@ -1038,7 +1038,7 @@ export const budgetsApi = {
     if (!apiConfig.useMockData) {
       const data = await fetchFromApi<any>(`/budgets/${budgetId}/category-limits/${encodeURIComponent(category)}`, {
         method: 'PUT',
-        body: JSON.stringify({ limitAmount }),
+        body: JSON.stringify({ category, limitAmount }),
       });
       return {
         id: data.id,
