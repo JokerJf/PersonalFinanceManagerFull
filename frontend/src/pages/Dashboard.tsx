@@ -264,20 +264,15 @@ const Dashboard = () => {
     setSelectedTransactionId(id);
   };
 
-  const currencySymbol =
-    displayCurrency === "UZS"
-      ? ""
-      : displayCurrency === "EUR"
-        ? "€"
-        : displayCurrency === "GBP"
-          ? "£"
-          : displayCurrency === "RUB"
-            ? "₽"
-            : "$";
+  const CURRENCY_SYMBOL: Record<string, string> = {
+    USD: "$", EUR: "€", GBP: "£", RUB: "₽",
+    JPY: "¥", CNY: "¥", KZT: "₸", TRY: "₺", AED: "د.إ",
+  };
 
   const formatBalance = (val: number) => {
     if (displayCurrency === "UZS") return `${val.toLocaleString("en-US")} ${t("shared.uzs")}`;
-    return `${currencySymbol}${val.toLocaleString("en-US", { minimumFractionDigits: 2 })}`;
+    const symbol = CURRENCY_SYMBOL[displayCurrency] ?? displayCurrency;
+    return `${val.toLocaleString("en-US", { minimumFractionDigits: 2 })} ${symbol}`;
   };
 
   const formatTransactionAmount = (tx: typeof transactions[number]) => {
@@ -287,9 +282,10 @@ const Dashboard = () => {
       return `${prefix}${tx.amount.toLocaleString("en-US")} ${t("shared.uzs")}`;
     }
 
+    const symbol = CURRENCY_SYMBOL[tx.currency] ?? tx.currency;
     return `${prefix}${tx.amount.toLocaleString("en-US", {
       minimumFractionDigits: 2,
-    })}`;
+    })} ${symbol}`;
   };
 
   return (

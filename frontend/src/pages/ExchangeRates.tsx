@@ -2,65 +2,69 @@ import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { useApp } from "@/context/AppContext";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeftRight, ArrowLeft } from "lucide-react";
+import { ArrowLeftRight, ArrowLeft, RefreshCw } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+
+// Символы валют для отображения флагов/иконок
+const CURRENCY_META: Record<string, { symbol: string; flag: string; name: string }> = {
+  USD: { symbol: "$",    flag: "🇺🇸", name: "US Dollar"       },
+  EUR: { symbol: "€",    flag: "🇪🇺", name: "Euro"            },
+  RUB: { symbol: "₽",    flag: "🇷🇺", name: "Российский рубль"},
+  GBP: { symbol: "£",    flag: "🇬🇧", name: "British Pound"   },
+  UZS: { symbol: "сум", flag: "🇺🇿", name: "Ўзбек сўм"       },
+  KZT: { symbol: "₸",    flag: "🇰🇿", name: "Қазақ теңгесі"  },
+  TRY: { symbol: "₺",    flag: "🇹🇷", name: "Türk lirası"     },
+  JPY: { symbol: "¥",    flag: "🇯🇵", name: "Japanese Yen"    },
+  CNY: { symbol: "¥",    flag: "🇨🇳", name: "Chinese Yuan"    },
+  AED: { symbol: "د.إ",  flag: "🇦🇪", name: "UAE Dirham"      },
+};
+
+const getCurrencyMeta = (code: string) =>
+  CURRENCY_META[code] ?? { symbol: code, flag: "💱", name: code };
+
+const formatRate = (rate: number, toCurrency: string): string => {
+  const meta = getCurrencyMeta(toCurrency);
+  if (toCurrency === "UZS") {
+    return `${Math.round(rate).toLocaleString("en-US")} сум`;
+  }
+  return `${rate.toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 4,
+  })} ${meta.symbol}`;
+};
 
 const ExchangeRates = () => {
   const { t } = useTranslation();
   const { exchangeRates, availableCurrencies, isLoadingExchangeRates, refreshExchangeRates } = useApp();
   const navigate = useNavigate();
 
-  // Используем валюты из контекста, если они доступны, иначе - значения по умолчанию
   const currencies = availableCurrencies.length > 0 ? availableCurrencies : ["USD", "UZS", "RUB"];
-  
-  const [fromCurrency, setFromCurrency] = useState(currencies[0] || "USD");
-  const [toCurrency, setToCurrency] = useState(currencies[1] || currencies[0] || "UZS");
-  const [amount, setAmount] = useState("1");
 
-  // Обновляем выбранные валюты при изменении доступных валют
+  const [fromCurrency, setFromCurrency] = useState(currencies[0] || "USD");
+  const [toCurrency, setToCurrency]     = useState(currencies[1] || currencies[0] || "UZS");
+  const [amount, setAmount]             = useState("1");
+  const [refreshing, setRefreshing]     = useState(false);
+
   useEffect(() => {
     if (availableCurrencies.length > 0) {
-      // Проверяем, являются ли текущие выбранные валюты доступными
-      const isFromCurrencyValid = availableCurrencies.includes(fromCurrency);
-      const isToCurrencyValid = availableCurrencies.includes(toCurrency);
-      
-      if (!isFromCurrencyValid) {
-        setFromCurrency(availableCurrencies[0]);
-      }
-      if (!isToCurrencyValid) {
-        setToCurrency(availableCurrencies[1] || availableCurrencies[0]);
-      }
+      if (!availableCurrencies.includes(fromCurrency)) setFromCurrency(availableCurrencies[0]);
+      if (!availableCurrencies.includes(toCurrency))   setToCurrency(availableCurrencies[1] || availableCurrencies[0]);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [availableCurrencies]);
 
-  useEffect(() => {
-    refreshExchangeRates();
-  }, []);
+  useEffect(() => { refreshExchangeRates(); }, []);
 
-  // Debug: показать данные в консоли при изменении
-  useEffect(() => {
-    console.log('ExchangeRates - currencies:', currencies);
-    console.log('ExchangeRates - fromCurrency:', fromCurrency);
-    console.log('ExchangeRates - exchangeRates:', exchangeRates);
-  }, [currencies, fromCurrency, exchangeRates]);
-
-  const getRate = (from: string, to: string) => {
+  const getRate = (from: string, to: string): number => {
     if (from === to) return 1;
-    // Ищем прямой курс
-    let r = exchangeRates.find((e) => e.from === from && e.to === to && e.from !== e.to);
-    if (r) return r?.rate;
-    
-    // Если нет прямого курса, пробуем найти обратный и инвертировать
-    const reverseRate = exchangeRates.find((e) => e.from === to && e.to === from && e.from !== e.to);
-    if (reverseRate && reverseRate.rate > 0) {
-      return 1 / reverseRate.rate;
-    }
-    
+    const direct = exchangeRates.find(e => e.from === from && e.to === to && e.from !== e.to);
+    if (direct) return direct.rate;
+    const reverse = exchangeRates.find(e => e.from === to && e.to === from && e.from !== e.to);
+    if (reverse && reverse.rate > 0) return 1 / reverse.rate;
     return 0;
   };
 
-  const rate = getRate(fromCurrency, toCurrency);
+  const rate      = getRate(fromCurrency, toCurrency);
   const converted = parseFloat(amount || "0") * rate;
 
   const swap = () => {
@@ -68,141 +72,207 @@ const ExchangeRates = () => {
     setToCurrency(fromCurrency);
   };
 
-  // Получаем курсы для отображения в таблице
-  // Формат: из fromCurrency в каждую другую валюту
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await refreshExchangeRates();
+    setRefreshing(false);
+  };
+
   const baseRates = currencies
-    .filter((c) => c !== fromCurrency) // исключаем текущую валюту
-    .filter((c, index, self) => self.indexOf(c) === index) // убираем дубликаты
-    .map((c) => ({
-      currency: c,
-      rate: getRate(fromCurrency, c), // Курс из fromCurrency в валюту c
-    }))
-    .filter((r) => r.rate > 0 && r.currency !== fromCurrency);
+    .filter((c, i, self) => c !== fromCurrency && self.indexOf(c) === i)
+    .map(c => ({ currency: c, rate: getRate(fromCurrency, c) }))
+    .filter(r => r.rate > 0);
+
+  const fromMeta = getCurrencyMeta(fromCurrency);
+  const toMeta   = getCurrencyMeta(toCurrency);
 
   return (
-    <div className="space-y-5 animate-fade-in">
-      <div className="flex items-center gap-3">
+    <div className="space-y-4 animate-fade-in px-0">
+
+      {/* Header */}
+      <div className="flex items-center gap-2">
         <button
           onClick={() => navigate(-1)}
-          className="w-9 h-9 rounded-full secondary-bg flex items-center justify-center"
+          className="w-8 h-8 rounded-full secondary-bg flex items-center justify-center shrink-0"
         >
-          <ArrowLeft size={18} />
+          <ArrowLeft size={16} />
         </button>
-        <h1 className="text-xl font-bold">{t("exchangeRates.title")}</h1>
+        <h1 className="text-base font-bold leading-tight truncate">
+          {t("exchangeRates.title")}
+        </h1>
+        <button
+          onClick={handleRefresh}
+          disabled={refreshing || isLoadingExchangeRates}
+          className="ml-auto w-8 h-8 rounded-full secondary-bg flex items-center justify-center shrink-0 disabled:opacity-50"
+        >
+          <RefreshCw size={14} className={refreshing ? "animate-spin" : ""} />
+        </button>
       </div>
 
-      {/* Converter */}
+      {/* Converter card */}
       {isLoadingExchangeRates ? (
-        <div className="fintech-card-elevated space-y-4">
-          <Skeleton className="h-12 w-full rounded-xl" />
-          <Skeleton className="h-10 w-10 rounded-full mx-auto" />
-          <Skeleton className="h-12 w-full rounded-xl" />
-          <Skeleton className="h-4 w-48 mx-auto" />
+        <div className="fintech-card-elevated space-y-3">
+          <Skeleton className="h-14 w-full rounded-xl" />
+          <Skeleton className="h-8 w-8 rounded-full mx-auto" />
+          <Skeleton className="h-14 w-full rounded-xl" />
+          <Skeleton className="h-4 w-40 mx-auto" />
         </div>
       ) : (
-        <div className="fintech-card-elevated space-y-4">
+        <div className="fintech-card-elevated space-y-3">
+
+          {/* FROM row */}
           <div>
-            <label className="text-xs font-medium text-muted-foreground mb-1 block">
+            <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">
               {t("exchangeRates.from")}
             </label>
-            <div className="flex gap-2">
+            <div className="flex gap-2 items-stretch">
+              {/* Amount input */}
               <input
                 type="number"
                 value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                className="flex-1 rounded-xl input-bg text-slate-900 dark:text-white px-4 py-3 text-lg font-bold focus:ring-2 focus:ring-primary outline-none"
+                onChange={e => setAmount(e.target.value)}
+                className="min-w-0 flex-1 rounded-xl input-bg text-slate-900 dark:text-white
+                           px-3 py-3 text-base font-bold focus:ring-2 focus:ring-primary
+                           outline-none w-0"
+                placeholder="0"
               />
+              {/* Currency select */}
               <select
                 value={fromCurrency}
-                onChange={(e) => setFromCurrency(e.target.value)}
-                className="rounded-xl bg-secondary dark:bg-[rgba(28,32,44,0.3)] border-0 px-3 py-3 text-sm font-medium focus:ring-2 focus:ring-primary outline-none"
+                onChange={e => setFromCurrency(e.target.value)}
+                className="rounded-xl bg-secondary dark:bg-[rgba(28,32,44,0.3)] border-0
+                           px-2 py-2 text-xs font-semibold focus:ring-2 focus:ring-primary
+                           outline-none shrink-0 max-w-[72px]"
               >
-                {currencies.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
+                {currencies.map(c => (
+                  <option key={c} value={c}>{c}</option>
                 ))}
               </select>
             </div>
+            {/* Currency label under input */}
+            <p className="text-[10px] text-muted-foreground mt-1 ml-1">
+              {fromMeta.flag} {fromMeta.name}
+            </p>
           </div>
 
-          <div className="flex items-center justify-center">
+          {/* Swap button */}
+          <div className="flex items-center gap-2">
+            <div className="flex-1 h-px bg-border/40" />
             <button
               onClick={swap}
-              className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary hover:bg-primary/20 transition-colors"
+              className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center
+                         text-primary hover:bg-primary/20 active:scale-95 transition-all shrink-0"
             >
-              <ArrowLeftRight size={18} />
+              <ArrowLeftRight size={14} />
             </button>
+            <div className="flex-1 h-px bg-border/40" />
           </div>
 
+          {/* TO row */}
           <div>
-            <label className="text-xs font-medium text-muted-foreground mb-1 block">
+            <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">
               {t("exchangeRates.to")}
             </label>
-            <div className="flex gap-2">
-              <div className="flex-1 rounded-xl input-bg text-slate-900 dark:text-white px-4 py-3 text-lg font-bold">
-                {converted.toLocaleString("en-US", {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
-                })}
+            <div className="flex gap-2 items-stretch">
+              {/* Result display */}
+              <div className="min-w-0 flex-1 rounded-xl input-bg text-slate-900 dark:text-white
+                              px-3 py-3 text-base font-bold w-0 overflow-hidden">
+                <span className="block truncate">
+                  {converted.toLocaleString("en-US", {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}
+                </span>
               </div>
+              {/* Currency select */}
               <select
                 value={toCurrency}
-                onChange={(e) => setToCurrency(e.target.value)}
-                className="rounded-xl bg-secondary dark:bg-[rgba(28,32,44,0.3)] border-0 px-3 py-3 text-sm font-medium focus:ring-2 focus:ring-primary outline-none"
+                onChange={e => setToCurrency(e.target.value)}
+                className="rounded-xl bg-secondary dark:bg-[rgba(28,32,44,0.3)] border-0
+                           px-2 py-2 text-xs font-semibold focus:ring-2 focus:ring-primary
+                           outline-none shrink-0 max-w-[72px]"
               >
-                {currencies.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
+                {currencies.map(c => (
+                  <option key={c} value={c}>{c}</option>
                 ))}
               </select>
             </div>
+            {/* Currency label under result */}
+            <p className="text-[10px] text-muted-foreground mt-1 ml-1">
+              {toMeta.flag} {toMeta.name}
+            </p>
           </div>
 
-          <p className="text-xs text-center text-muted-foreground">
-            1 {fromCurrency} ={" "}
-            {rate.toLocaleString("en-US", {
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 4,
-            })}{" "}
-            {toCurrency}
-          </p>
+          {/* Rate hint */}
+          <div className="rounded-xl bg-primary/5 px-3 py-2 text-center">
+            <p className="text-[11px] text-muted-foreground leading-snug">
+              1 {fromCurrency}{" "}
+              <span className="text-muted-foreground/60">=</span>{" "}
+              <span className="font-semibold text-foreground">
+                {formatRate(rate, toCurrency)}
+              </span>
+            </p>
+          </div>
         </div>
       )}
 
-      {/* Rate Table */}
+      {/* Rate table */}
       {isLoadingExchangeRates ? (
-        <div>
-          <Skeleton className="h-6 w-36 mb-3" />
-          <div className="space-y-2">
-            <Skeleton className="h-16 w-full rounded-2xl" />
-            <Skeleton className="h-16 w-full rounded-2xl" />
-            <Skeleton className="h-16 w-full rounded-2xl" />
-          </div>
+        <div className="space-y-2">
+          <Skeleton className="h-5 w-32 rounded" />
+          {[1, 2, 3].map(i => (
+            <Skeleton key={i} className="h-14 w-full rounded-2xl" />
+          ))}
         </div>
       ) : (
         <div>
-          <h2 className="section-title mb-3">
+          <h2 className="section-title mb-2">
             {t("exchangeRates.ratesFor")} 1 {fromCurrency}
           </h2>
+
           <div className="space-y-2">
-            {baseRates.map((r) => (
-              <div key={r.currency} className="fintech-card flex items-center justify-between py-3">
-                <p className="text-sm font-medium">{fromCurrency} → {r.currency}</p>
-                <p className="text-sm font-semibold">
-                  {r.rate.toLocaleString("en-US", {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 4,
-                  })}
-                </p>
+            {baseRates.map(r => {
+              const meta = getCurrencyMeta(r.currency);
+              return (
+                <div
+                  key={r.currency}
+                  className="fintech-card flex items-center gap-2 py-2.5 cursor-pointer
+                             active:scale-[0.98] transition-transform"
+                  onClick={() => { setToCurrency(r.currency); window.scrollTo({ top: 0, behavior: "smooth" }); }}
+                >
+                  {/* Flag */}
+                  <span className="text-xl shrink-0 w-7 text-center">{meta.flag}</span>
+
+                  {/* Currency info */}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-semibold leading-none truncate">{r.currency}</p>
+                    <p className="text-[10px] text-muted-foreground mt-0.5 truncate">{meta.name}</p>
+                  </div>
+
+                  {/* Rate */}
+                  <div className="text-right shrink-0">
+                    <p className="text-xs font-bold leading-none">
+                      {formatRate(r.rate, r.currency)}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">
+                      1 {fromCurrency}
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
+
+            {baseRates.length === 0 && (
+              <div className="text-center py-6 text-muted-foreground text-xs">
+                {t("exchangeRates.noRates") ?? "Нет данных о курсах"}
               </div>
-            ))}
+            )}
           </div>
         </div>
       )}
 
-      <p className="text-[10px] text-center text-muted-foreground">
+      {/* Disclaimer */}
+      <p className="text-[10px] text-center text-muted-foreground pb-2 leading-relaxed">
         {t("exchangeRates.disclaimer")}
       </p>
     </div>
