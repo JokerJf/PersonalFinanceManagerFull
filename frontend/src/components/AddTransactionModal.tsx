@@ -93,6 +93,7 @@ function AddTransactionModal({
     updateTransaction,
     workspace,
     setAddAccountModalOpen,
+    refreshData,
   } = useApp();
 
   const [txType, setTxType] = useState<TxType>(defaultType || editTransaction?.type || "expense");
@@ -131,6 +132,14 @@ function AddTransactionModal({
       }
     }
   };
+
+  // При открытии модала обновляем список счетов с сервера —
+  // пользователь мог только что создать новую карту и нам нужны актуальные данные
+  useEffect(() => {
+    if (modalOpen && !editTransaction) {
+      refreshData();
+    }
+  }, [modalOpen]);
 
   // Обновляем тип транзакции при изменении defaultType
   useEffect(() => {
@@ -285,6 +294,17 @@ function AddTransactionModal({
       return;
     }
 
+    // Дополнительная проверка: аккаунт должен существовать в списке.
+    // Если не найден — возможно счета ещё не загрузились (race condition после
+    // создания новой карты). Показываем понятную ошибку.
+    const fromAccountCheck = accounts.find((a) => a.id === fromAccountId);
+    if (!fromAccountCheck && fromAccountId) {
+      setErrors({ fromAccount: t("transactionForm.errors.selectAccount") });
+      // Принудительно обновляем данные чтобы подтянуть новую карту
+      refreshData();
+      return;
+    }
+
     setErrors({});
 
     const amountNum = parseFloat(amount);
@@ -303,11 +323,12 @@ function AddTransactionModal({
     // If editing, update existing transaction instead of creating new one
     if (isEditMode && editTransaction) {
       // Обновляем транзакцию
+      // Бэкенд ожидает type в верхнем регистре — нормализуем здесь и в api.ts
       const updatedTx: Transaction = {
         ...editTransaction,
-        type: txType,
+        type: txType, // api.ts.updateTransaction конвертирует в UPPERCASE перед отправкой
         amount: amountNum,
-        currency: fromAccount?.currency || "USD",
+        currency: fromAccount?.currency || editTransaction.currency || "USD",
         category: txType === "transfer" ? "Transfer" : category,
         description: description || "",
         accountId: fromAccountId,
@@ -323,6 +344,7 @@ function AddTransactionModal({
         date,
         icon:
           editTransaction?.icon ||
+          categoryIcons[txType === "transfer" ? "Transfer" : category] ||
           (txType === "expense" ? "💸" : txType === "income" ? "💰" : "🔄"),
         note: note || undefined,
       };

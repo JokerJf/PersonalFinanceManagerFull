@@ -16,6 +16,31 @@ import { useState } from "react";
 import { toast } from "@/hooks/use-toast";
 import { useTranslation } from "react-i18next";
 
+// Маппинг валют на символы
+// UZS — "сум" (текстом), остальные — символ после числа
+const CURRENCY_SYMBOL: Record<string, string> = {
+  USD: "$",
+  EUR: "€",
+  RUB: "₽",
+  GBP: "£",
+  JPY: "¥",
+  CNY: "¥",
+  KZT: "₸",
+  TRY: "₺",
+  AED: "د.إ",
+};
+
+// Форматирует сумму: знак + число + символ валюты после
+// UZS: -42,000 сум  |  USD: -5.00 $  |  EUR: +100.00 €
+const formatCurrency = (amount: number, currency: string, type?: "income" | "expense" | "transfer" | string): string => {
+  const prefix = type === "income" ? "+" : type === "expense" ? "-" : "";
+  if (currency === "UZS") {
+    return `${prefix}${amount.toLocaleString("en-US")} сум`;
+  }
+  const symbol = CURRENCY_SYMBOL[currency] ?? currency;
+  return `${prefix}${amount.toLocaleString("en-US", { minimumFractionDigits: 2 })} ${symbol}`;
+};
+
 const GlobalBottomSheet = () => {
   const { t } = useTranslation();
   const { 
@@ -77,12 +102,7 @@ const GlobalBottomSheet = () => {
     toast({ title: t("shared.copied") || "Copied", description: t("accounts.toasts.copied.description") || "Card number copied to clipboard." });
   };
 
-  const formatAmount = (tx: Transaction) => {
-    if (tx.currency === "UZS") {
-      return `${tx.amount.toLocaleString("en-US")} сум`;
-    }
-    return `${tx.amount.toLocaleString("en-US", { minimumFractionDigits: 2 })}`;
-  };
+  const formatAmount = (tx: Transaction) => formatCurrency(tx.amount, tx.currency, tx.type);
 
   // Handle switching from card to transaction
   const handleTransactionClick = (txId: string) => {
@@ -112,7 +132,7 @@ const GlobalBottomSheet = () => {
                     <p className="font-semibold text-lg text-slate-900 dark:text-white">{selectedCard.name}</p>
                     <p className="text-sm text-slate-500 dark:text-white/60 capitalize">{selectedCard.type} · {selectedCard.currency}</p>
                     <p className="text-2xl font-bold text-slate-900 dark:text-white mt-2">
-                      {selectedCard.currency === "UZS" ? `${selectedCard.balance.toLocaleString("en-US")} сум` : `${selectedCard.balance.toLocaleString("en-US", { minimumFractionDigits: 2 })}`}
+                      {formatCurrency(selectedCard.balance, selectedCard.currency)}
                     </p>
                   </div>
                 )}
@@ -193,7 +213,7 @@ const GlobalBottomSheet = () => {
                         </div>
                         <p className={`text-xs sm:text-sm font-semibold shrink-0 ${tx.type === "income" ? "text-emerald-600 dark:text-emerald-400" : tx.type === "expense" ? "text-rose-600 dark:text-rose-400" : "text-indigo-600 dark:text-indigo-400"}`}>
                           {tx.type === "income" ? "+" : tx.type === "expense" ? "-" : ""}
-                          {tx.currency === "UZS" ? `${tx.amount.toLocaleString("en-US")} сум` : `${tx.amount.toLocaleString("en-US", { minimumFractionDigits: 2 })}`}
+{formatCurrency(tx.amount, tx.currency, tx.type)}
                         </p>
                       </div>
                     ))}
@@ -219,9 +239,10 @@ const GlobalBottomSheet = () => {
                     <p className={`text-base sm:text-lg font-bold ${selectedTx.type === "income" ? "text-emerald-600 dark:text-emerald-400" : selectedTx.type === "expense" ? "text-rose-600 dark:text-rose-400" : "text-indigo-600 dark:text-indigo-400"}`}>
                       {formatAmount(selectedTx)}
                     </p>
+
                     {selectedTx.toCurrency && selectedTx.toCurrency !== selectedTx.currency && (
                       <p className="text-[10px] sm:text-xs text-slate-500 dark:text-white/50">
-                        → {selectedTx.toCurrency === "UZS" ? `${selectedTx.toAmount?.toLocaleString("en-US")} сум` : `${selectedTx.toAmount?.toLocaleString("en-US", { minimumFractionDigits: 2 })}`}
+                        {selectedTx.toAmount != null ? `→ ${formatCurrency(selectedTx.toAmount, selectedTx.toCurrency!)}` : ""}
                       </p>
                     )}
                   </div>
@@ -233,6 +254,18 @@ const GlobalBottomSheet = () => {
                 <div className="flex justify-between items-center py-2.5 sm:py-3 border-b border-gray-200 dark:border-slate-700">
                   <span className="text-slate-500 text-xs sm:text-sm">{t("transactionDetails.type")}</span>
                   <span className="font-medium text-slate-700 dark:text-white capitalize text-xs sm:text-sm">{t(`transactions.filters.${selectedTx.type}`)}</span>
+                </div>
+                <div className="flex justify-between items-center py-2.5 sm:py-3 border-b border-gray-200 dark:border-slate-700">
+                  <span className="text-slate-500 text-xs sm:text-sm">Валюта</span>
+                  <span className="font-medium text-slate-700 dark:text-white text-xs sm:text-sm">
+                    {CURRENCY_SYMBOL[selectedTx.currency] ?? selectedTx.currency}
+                    {selectedTx.currency !== "UZS" && (
+                      <span className="text-slate-400 dark:text-white/40 ml-1">({selectedTx.currency})</span>
+                    )}
+                    {selectedTx.toCurrency && selectedTx.toCurrency !== selectedTx.currency && (
+                      <span className="text-slate-400 dark:text-white/40"> → {CURRENCY_SYMBOL[selectedTx.toCurrency] ?? selectedTx.toCurrency}{selectedTx.toCurrency !== "UZS" ? ` (${selectedTx.toCurrency})` : ""}</span>
+                    )}
+                  </span>
                 </div>
                 <div className="flex justify-between items-center py-2.5 sm:py-3 border-b border-gray-200 dark:border-slate-700">
                   <span className="text-slate-500 text-xs sm:text-sm">{t("transactionDetails.category")}</span>

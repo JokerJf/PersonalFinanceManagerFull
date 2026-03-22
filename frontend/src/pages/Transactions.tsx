@@ -8,6 +8,31 @@ import CategoryIcon from "@/components/CategoryIcon";
 
 type Filter = "all" | "expense" | "income" | "transfer";
 
+// Маппинг валют на символы
+// UZS — "сум" (текстом), остальные — символ после числа
+const CURRENCY_SYMBOL: Record<string, string> = {
+  USD: "$",
+  EUR: "€",
+  RUB: "₽",
+  GBP: "£",
+  JPY: "¥",
+  CNY: "¥",
+  KZT: "₸",
+  TRY: "₺",
+  AED: "د.إ",
+};
+
+// Форматирует сумму: знак + число + символ валюты после
+// UZS: -42,000 сум  |  USD: -5.00 $  |  EUR: +100.00 €
+const formatCurrency = (amount: number, currency: string, type?: "income" | "expense" | "transfer" | string): string => {
+  const prefix = type === "income" ? "+" : type === "expense" ? "-" : "";
+  if (currency === "UZS") {
+    return `${prefix}${amount.toLocaleString("en-US")} сум`;
+  }
+  const symbol = CURRENCY_SYMBOL[currency] ?? currency;
+  return `${prefix}${amount.toLocaleString("en-US", { minimumFractionDigits: 2 })} ${symbol}`;
+};
+
 const Transactions = () => {
   const { t } = useTranslation();
   const { toast } = useToast();
@@ -75,28 +100,11 @@ const {
     return acc;
   }, {});
 
-  const formatAmount = (tx: Transaction) => {
-    const prefix = tx.type === "income" ? "+" : tx.type === "expense" ? "-" : "";
-
-    if (tx.currency === "UZS") {
-      return `${prefix}${tx.amount.toLocaleString("en-US")} ${t("transactions.currency.uzs")}`;
-    }
-
-    return `${prefix}$${tx.amount.toLocaleString("en-US", {
-      minimumFractionDigits: 2,
-    })}`;
-  };
+  const formatAmount = (tx: Transaction) => formatCurrency(tx.amount, tx.currency, tx.type);
 
   const formatConvertedAmount = (tx: Transaction) => {
-    if (!tx.toCurrency || tx.toCurrency === tx.currency) return null;
-
-    if (tx.toCurrency === "UZS") {
-      return `→ ${tx.toAmount?.toLocaleString("en-US")} ${t("transactions.currency.uzs")}`;
-    }
-
-    return `→ ${tx.toAmount?.toLocaleString("en-US", {
-      minimumFractionDigits: 2,
-    })}`;
+    if (!tx.toCurrency || tx.toCurrency === tx.currency || !tx.toAmount) return null;
+    return `→ ${formatCurrency(tx.toAmount, tx.toCurrency)}`;
   };
 
   const handleTransactionClick = (id: string) => {

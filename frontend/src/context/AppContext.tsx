@@ -926,13 +926,14 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   }, [workspace]);
 
   const updateAccount = useCallback(async (account: Account) => {
-    try {
-      await api.accounts.updateAccount(account.id, account, workspace);
-    } catch (error) {
-      console.error("Error updating account:", error);
-    }
+    // Сначала вызываем API — если ошибка, выбрасываем её наверх
+    // чтобы UI мог показать корректное сообщение об ошибке
+    const savedAccount = await api.accounts.updateAccount(account.id, account, workspace);
 
-    const updater = (accs: Account[]) => accs.map((a) => (a.id === account.id ? account : a));
+    // Обновляем локальный стейт только после успешного ответа от сервера
+    // Используем данные из ответа сервера (не локальные)
+    const updater = (accs: Account[]) =>
+      accs.map((a) => (a.id === account.id ? { ...account, ...savedAccount } : a));
 
     if (workspace === "personal") setPersonalAccs((prev) => updater(prev));
     else setFamilyAccs((prev) => updater(prev));
@@ -942,9 +943,21 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     try {
       const newAccount = await api.accounts.createAccount(account, workspace);
 
-      // Добавляем новый счёт в начало списка (слева)
+      // Оптимистично добавляем в список сразу для быстрого UI-отклика
       if (workspace === "personal") setPersonalAccs((prev) => [newAccount, ...prev]);
       else setFamilyAccs((prev) => [newAccount, ...prev]);
+
+      // Синхронизируем весь список с сервером — гарантируем что ID, валюта
+      // и все поля точно совпадают с БД. Устраняет race condition когда
+      // пользователь сразу после создания карты создаёт транзакцию
+      // и fromAccount?.currency оказывается undefined.
+      try {
+        const freshAccounts = await api.accounts.getAllAccounts(workspace);
+        if (workspace === "personal") setPersonalAccs(freshAccounts);
+        else setFamilyAccs(freshAccounts);
+      } catch (syncErr) {
+        console.warn("Could not sync accounts after creation:", syncErr);
+      }
 
       return newAccount;
     } catch (error) {
@@ -955,7 +968,6 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         id: Date.now().toString(),
       };
 
-      // Добавляем новый счёт в начало списка (слева)
       if (workspace === "personal") setPersonalAccs((prev) => [fallbackAccount, ...prev]);
       else setFamilyAccs((prev) => [fallbackAccount, ...prev]);
 

@@ -209,9 +209,13 @@ export const accountsApi = {
   // Обновить счет
   async updateAccount(id: string, updates: Partial<Account>, workspace: string = 'personal'): Promise<Account> {
     if (!apiConfig.useMockData) {
+      // Удаляем null-поля — бэкенд ожидает string | undefined, а не null
+      const payload = Object.fromEntries(
+        Object.entries(updates).filter(([, v]) => v !== null && v !== undefined)
+      );
       return fetchFromApi<Account>(`/accounts/${id}?workspace=${workspace}`, {
         method: 'PUT',
-        body: JSON.stringify(updates),
+        body: JSON.stringify(payload),
       });
     }
     const updatedAccount: Account = {
@@ -295,10 +299,23 @@ export const transactionsApi = {
   // Обновить транзакцию
   async updateTransaction(id: string, updates: Partial<Transaction>, workspace: string = 'personal'): Promise<Transaction> {
     if (!apiConfig.useMockData) {
-      return fetchFromApi<Transaction>(`/transactions/${id}?workspace=${workspace}`, {
+      // Бэкенд принимает type только в верхнем регистре (EXPENSE/INCOME/TRANSFER)
+      const payload = {
+        ...updates,
+        type: updates.type ? (updates.type as string).toUpperCase() : undefined,
+      };
+      const data = await fetchFromApi<any>(`/transactions/${id}?workspace=${workspace}`, {
         method: 'PUT',
-        body: JSON.stringify(updates),
+        body: JSON.stringify(payload),
       });
+      // Нормализуем ответ — тип обратно в нижний регистр для фронтенда
+      return {
+        ...data,
+        id: String(data.id),
+        type: (data.type as string).toLowerCase() as Transaction['type'],
+        accountId: String(data.accountId),
+        toAccountId: data.toAccountId ? String(data.toAccountId) : undefined,
+      };
     }
     const updatedTransaction: Transaction = {
       ...(mockTransactions.find(transaction => transaction.id === id) as Transaction),

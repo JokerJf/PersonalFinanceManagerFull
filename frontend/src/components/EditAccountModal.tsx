@@ -111,11 +111,25 @@ const EditAccountModal = ({ account, open, onOpenChange, onSave }: EditAccountMo
     
     if (formData.id && formData.name) {
       try {
-        await onSave(formData as Account);
+        // Очищаем пустые строки — превращаем их в undefined чтобы не слать пустые поля
+        const cleanData: Account = {
+          ...(formData as Account),
+          cardNumber: formData.cardNumber || undefined,
+          cardNumberFull: formData.cardNumberFull || undefined,
+          expiryDate: formData.expiryDate || undefined,
+          cardNetwork: formData.cardNetwork || undefined,
+        };
+        await onSave(cleanData);
         onOpenChange(false);
         toast({ title: "Успешно", description: "Счёт обновлён" });
       } catch (error) {
-        toast({ title: "Ошибка", description: "Не удалось обновить счёт", variant: "destructive" });
+        console.error("Error saving account:", error);
+        // Показываем конкретную ошибку если она есть
+        let msg = "Не удалось обновить счёт";
+        if (error && typeof error === "object" && "message" in error) {
+          msg = String((error as any).message);
+        }
+        toast({ title: "Ошибка", description: msg, variant: "destructive" });
       }
     }
   };
