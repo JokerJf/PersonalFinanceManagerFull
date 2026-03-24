@@ -382,7 +382,7 @@ const resources = {
                 }
             },
             dashboard: {
-                brand: "FinWallet",
+                brand: "PulPay",
                 totalBalance: "Общий баланс",
                 tapToSwitch: "Нажмите для смены",
                 accountsCount_one: "{{count}} счёт",
@@ -912,7 +912,7 @@ const resources = {
                 }
             },
             dashboard: {
-                brand: "FinWallet",
+                brand: "PulPay",
                 totalBalance: "Total balance",
                 tapToSwitch: "Tap to switch",
                 accountsCount_one: "{{count}} account",
@@ -1441,7 +1441,7 @@ const resources = {
                 }
             },
             dashboard: {
-                brand: "FinWallet",
+                brand: "PulPay",
                 totalBalance: "Umumiy balans",
                 tapToSwitch: "Almashtirish uchun bosing",
                 accountsCount_one: "{{count}} hisob",
